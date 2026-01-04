@@ -1,0 +1,88 @@
+# Visual Thinking App - PRD Implementation Tasks
+
+## Phase 0: Foundation & Migration
+- [ ] Migrate from npm to pnpm
+- [ ] Initialize Tauri with existing Vite + React app
+- [ ] Configure Tauri plugins (sql, fs-extra, dialog, shell)
+- [ ] Set up Rust backend structure
+
+## Phase 1: Core Infrastructure
+- [ ] Set up Zustand state management stores
+  - [ ] `projectStore.ts` - Projects & boards CRUD
+  - [ ] `canvasStore.ts` - Canvas state wrapper
+  - [ ] `cardStore.ts` - Cards data & operations
+  - [ ] `fileStore.ts` - Files, PDFs, images
+  - [ ] `tagStore.ts` - Tags & filtering
+  - [ ] `searchStore.ts` - Search state & results
+  - [ ] `uiStore.ts` - Sidebar, modals, preferences
+  - [ ] `syncStore.ts` - Database sync operations
+- [ ] Implement SQLite database schema
+- [ ] Create Tauri IPC commands for database operations
+- [ ] Set up file system structure (projects/, backups/, temp/)
+
+## Phase 2: Canvas Engine (tldraw)
+- [ ] Install and configure tldraw
+- [ ] Create TldrawWrapper component
+- [ ] Implement custom CardShape (with TipTap integration)
+- [ ] Implement custom PDFShape
+- [ ] Implement custom HighlightShape
+- [ ] Connect tldraw state to Zustand canvasStore
+- [ ] Implement auto-save with tldraw events
+- [ ] Replace current CanvasArea with tldraw canvas
+
+## Phase 3: Rich Text Editor (TipTap)
+- [ ] Install TipTap and extensions
+- [ ] Create TipTap editor component
+- [ ] Configure extensions (StarterKit, TaskList, Link, Image, etc.)
+- [ ] Implement custom extensions (Mentions, SlashCommands)
+- [ ] Integrate TipTap into CardShape for inline editing
+- [ ] Create popup/full-screen card editor
+- [ ] Implement auto-save on blur
+
+## Phase 4: Drag & Drop (dnd-kit)
+- [ ] Install and configure dnd-kit
+- [ ] Implement library drag-to-canvas
+- [ ] Implement sidebar item reordering
+- [ ] Implement favorites reorganization
+- [ ] Connect dnd-kit with tldraw drag system
+
+## Phase 5: PDF Support
+- [ ] Install react-pdf and pdfjs-dist
+- [ ] Create PDF viewer component
+- [ ] Implement PDF import (copy/link modes)
+- [ ] Create PDF thumbnail generation
+- [ ] Implement page drag to canvas (PDFPageShape)
+- [ ] Add PDF highlight/annotation system
+- [ ] Store highlights in database
+
+## Phase 6: Search & Indexing
+- [ ] Install MiniSearch
+- [ ] Create search index from database content
+- [ ] Implement search-as-you-type UI
+- [ ] Add filter options (type, tags, project, date)
+- [ ] Implement SQLite FTS5 for full-text search
+
+## Phase 7: Data Persistence
+- [ ] Wire up SQLite for all CRUD operations
+- [ ] Implement project/board management
+- [ ] Implement card persistence
+- [ ] Implement file management
+- [ ] Implement tags & tag relations
+- [ ] Implement links & backlinks
+- [ ] Implement favorites & recents
+- [ ] Implement version history
+- [ ] Implement journal entries
+
+## Phase 8: Advanced Features
+- [ ] Implement mind map shape
+- [ ] Add presentation mode
+- [ ] Implement import/export (Markdown, PDF, ZIP)
+- [ ] Add automatic backups
+- [ ] Create settings UI and persistence
+- [ ] Implement keyboard shortcuts system
+
+## Phase 9: Polish & Optimization
+- [ ] Performance optimization for large canvases
+- [ ] Progressive image loading
+- [ ] Error handling & recovery
+- [ ] Cross-platform testing (Windows/macOS)

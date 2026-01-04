@@ -1,0 +1,196 @@
+import {
+    BaseBoxShapeUtil,
+    HTMLContainer,
+    Rectangle2d,
+    TLBaseShape,
+    TLResizeInfo,
+    resizeBox,
+} from 'tldraw';
+
+// Define the card shape type
+export type CardShape = TLBaseShape<
+    'card',
+    {
+        w: number;
+        h: number;
+        cardId: string; // Reference to card in cardStore
+        title: string;
+        content: string;
+        color: string;
+        isEditing: boolean;
+    }
+>;
+
+// Card shape utility class
+export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
+    static override type = 'card' as const;
+
+    // Default properties for new cards
+    getDefaultProps(): CardShape['props'] {
+        return {
+            w: 280,
+            h: 160,
+            cardId: '',
+            title: 'New Card',
+            content: '',
+            color: 'highlight-blue',
+            isEditing: false,
+        };
+    }
+
+    // Define the shape's bounds
+    override getGeometry(shape: CardShape) {
+        return new Rectangle2d({
+            width: shape.props.w,
+            height: shape.props.h,
+            isFilled: true,
+        });
+    }
+
+    // Render the card component
+    override component(shape: CardShape) {
+        const colorMap: Record<string, string> = {
+            'highlight-blue': '210 90% 65%',
+            'highlight-purple': '270 70% 65%',
+            'highlight-green': '150 70% 50%',
+            'highlight-yellow': '45 93% 65%',
+            'highlight-pink': '330 80% 65%',
+        };
+
+        const hslColor = colorMap[shape.props.color] || '210 90% 65%';
+        const isEditing = shape.props.isEditing;
+
+        return (
+            <HTMLContainer
+                id={shape.id}
+                style={{
+                    width: shape.props.w,
+                    height: shape.props.h,
+                    backgroundColor: `hsl(${hslColor} / 0.12)`,
+                    border: `2px solid hsl(${hslColor} / 0.25)`,
+                    borderRadius: '12px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    pointerEvents: 'all',
+                }}
+            >
+                {/* Card Header */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        marginBottom: '8px',
+                    }}
+                >
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={`hsl(${hslColor})`}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ marginTop: '2px', flexShrink: 0 }}
+                    >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <h3
+                        style={{
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            lineHeight: 1.3,
+                            color: 'var(--color-text)',
+                            margin: 0,
+                        }}
+                    >
+                        {shape.props.title || 'Untitled Card'}
+                    </h3>
+                </div>
+
+                {/* Card Content */}
+                <p
+                    style={{
+                        fontSize: '12px',
+                        lineHeight: 1.5,
+                        color: 'var(--color-text-1)',
+                        margin: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        flex: 1,
+                    }}
+                >
+                    {shape.props.content || 'Click to edit...'}
+                </p>
+
+                {/* Card Footer */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginTop: 'auto',
+                        paddingTop: '12px',
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            borderRadius: '999px',
+                            color: 'var(--color-text-1)',
+                        }}
+                    >
+                        {shape.props.content.split(/\s+/).filter(Boolean).length} words
+                    </span>
+                </div>
+            </HTMLContainer>
+        );
+    }
+
+    // Render indicator when selected
+    override indicator(shape: CardShape) {
+        return (
+            <rect
+                width={shape.props.w}
+                height={shape.props.h}
+                rx={12}
+                ry={12}
+                fill="none"
+            />
+        );
+    }
+
+    // Handle resize
+    override onResize(shape: CardShape, info: TLResizeInfo<CardShape>) {
+        return resizeBox(shape, info);
+    }
+
+    // Handle double-click to edit
+    override onDoubleClick(shape: CardShape) {
+        // Toggle editing mode - this will be connected to TipTap later
+        return {
+            id: shape.id,
+            type: 'card',
+            props: {
+                ...shape.props,
+                isEditing: !shape.props.isEditing,
+            },
+        };
+    }
+
+    // Can the shape be edited
+    override canEdit() {
+        return true;
+    }
+}

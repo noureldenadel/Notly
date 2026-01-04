@@ -1,0 +1,417 @@
+# Visual Thinking App - Full PRD Implementation Plan
+
+Transform the current UI prototype into a fully functional offline-first desktop application as specified in the PRD.
+
+> [!IMPORTANT]
+> The current UI design will be preserved - this plan focuses on adding functionality behind the existing interface.
+
+---
+
+## Phase 0: Foundation & Package Manager Migration
+
+### [MODIFY] [package.json](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/package.json)
+- Remove [package-lock.json](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/package-lock.json) and `node_modules`
+- Initialize with pnpm: `pnpm install`
+- Add new dependencies per PRD
+
+### [NEW] Tauri Configuration
+```
+src-tauri/
+├── Cargo.toml           # Rust dependencies
+├── tauri.conf.json      # Tauri config
+├── src/
+│   ├── main.rs          # Tauri entry point
+│   ├── commands/        # IPC command handlers
+│   │   ├── mod.rs
+│   │   ├── database.rs  # SQLite operations
+│   │   └── files.rs     # File system operations
+│   └── db/
+│       ├── mod.rs
+│       └── schema.sql   # SQLite schema from PRD
+```
+
+**Setup Commands:**
+```bash
+pnpm add -D @tauri-apps/cli @tauri-apps/api
+pnpm tauri init
+```
+
+**Tauri Plugins (Cargo.toml):**
+```toml
+tauri-plugin-sql = { version = "0.1", features = ["sqlite"] }
+tauri-plugin-fs-extra = "0.1"
+tauri-plugin-dialog = "0.1"
+tauri-plugin-shell = "0.1"
+```
+
+---
+
+## Phase 1: State Management (Zustand)
+
+### [NEW] src/stores/
+Create Zustand stores matching PRD architecture:
+
+#### [NEW] [projectStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/projectStore.ts)
+- Projects CRUD operations
+- Board management within projects
+- Active project/board state
+
+#### [NEW] [canvasStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/canvasStore.ts)
+- Wraps tldraw state
+- Viewport/camera state
+- Selection state
+
+#### [NEW] [cardStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/cardStore.ts)
+- Cards data and operations
+- TipTap content management
+- Word count tracking
+
+#### [NEW] [fileStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/fileStore.ts)
+- File/PDF/image management
+- Import modes (copy/link)
+- Thumbnail paths
+
+#### [NEW] [tagStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/tagStore.ts)
+- Tags CRUD
+- Tag relations
+- Tag groups
+
+#### [NEW] [searchStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/searchStore.ts)
+- Search query state
+- Results cache
+- Filter state
+
+#### [NEW] [uiStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/uiStore.ts)
+- Sidebar state
+- Modal state
+- Theme preferences
+
+#### [NEW] [syncStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/syncStore.ts)
+- Database sync status
+- Auto-save coordination
+- Version tracking
+
+**Dependencies:**
+```bash
+pnpm add zustand immer
+```
+
+---
+
+## Phase 2: Database Layer (SQLite)
+
+### [NEW] src-tauri/src/db/schema.sql
+Implement the complete SQLite schema from PRD Section 2.4:
+- `projects`, `boards`, `cards`, `canvas_elements`
+- `files`, `highlights`, `tags`, `tag_relations`
+- `links`, `favorites`, `version_history`, `journal_entries`
+- FTS5 `search_index` virtual table
+- All performance indexes
+
+### [NEW] src-tauri/src/commands/database.rs
+Tauri IPC commands for:
+- `create_project`, `get_projects`, `update_project`, `delete_project`
+- `create_board`, `get_boards`, `update_board`, `delete_board`
+- `create_card`, `get_cards`, `update_card`, `delete_card`
+- `save_canvas_snapshot`, `load_canvas_snapshot`
+- `manage_tags`, `manage_links`, `manage_favorites`
+- `search_content`
+
+### [NEW] src/lib/database.ts
+TypeScript wrapper for Tauri database commands using `@tauri-apps/api/tauri`
+
+---
+
+## Phase 3: Canvas Engine (tldraw)
+
+### [NEW] Dependencies
+```bash
+pnpm add @tldraw/tldraw
+```
+
+### [NEW] src/components/canvas/TldrawWrapper.tsx
+- Initialize tldraw with custom theme
+- Handle persistence via Zustand/SQLite
+- Configure viewport and camera
+
+### [NEW] src/components/canvas/shapes/CardShape.tsx
+Custom tldraw shape for cards:
+- Renders TipTap editor when editing
+- Links to card data in cardStore
+- Display modes: collapsed, preview, expanded
+
+### [NEW] src/components/canvas/shapes/PDFShape.tsx
+Custom tldraw shape for PDF pages:
+- Thumbnail preview
+- Click to open PDF viewer
+- Links to file in fileStore
+
+### [NEW] src/components/canvas/shapes/HighlightShape.tsx
+Custom tldraw shape for highlights:
+- Shows snippet and note
+- Links to source (PDF/card)
+- Click to navigate to source
+
+### [MODIFY] [CanvasArea.tsx](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/components/canvas/CanvasArea.tsx)
+- Replace custom card rendering with `TldrawWrapper`
+- Keep visual styling/colors
+- Connect to stores
+
+---
+
+## Phase 4: Rich Text Editor (TipTap)
+
+### [NEW] Dependencies
+```bash
+pnpm add @tiptap/react @tiptap/starter-kit @tiptap/extension-link \
+  @tiptap/extension-image @tiptap/extension-task-list @tiptap/extension-task-item \
+  @tiptap/extension-color @tiptap/extension-highlight @tiptap/extension-code-block-lowlight
+```
+
+### [NEW] src/components/editor/TipTapEditor.tsx
+- Configure all extensions
+- Toolbar component
+- Slash command menu
+
+### [NEW] src/components/editor/extensions/MentionExtension.ts
+Custom extension for `@card` and `@board` mentions
+
+### [NEW] src/components/editor/extensions/SlashCommands.ts
+Custom extension for `/` command menu
+
+### [NEW] src/components/editor/CardEditor.tsx
+- Full-screen card editor modal
+- Uses TipTapEditor
+- Auto-save on blur
+
+---
+
+## Phase 5: Drag & Drop (dnd-kit)
+
+### [NEW] Dependencies
+```bash
+pnpm add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+```
+
+### [MODIFY] [LeftSidebar.tsx](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/components/layout/LeftSidebar.tsx)
+- Wrap library items with `DndContext`
+- Make favorites sortable
+- Make tags sortable
+- Enable drag to canvas
+
+### [NEW] src/components/dnd/DraggableCard.tsx
+Library card that can be dragged to canvas
+
+### [NEW] src/components/dnd/SortableItem.tsx
+Reusable sortable wrapper for lists
+
+---
+
+## Phase 6: PDF Support
+
+### [NEW] Dependencies
+```bash
+pnpm add react-pdf pdfjs-dist
+```
+
+### [NEW] src/components/pdf/PDFViewer.tsx
+- Full PDF viewer with navigation
+- Zoom controls
+- Search within PDF
+
+### [NEW] src/components/pdf/PDFThumbnails.tsx
+- Page thumbnails sidebar
+- Draggable to canvas
+
+### [NEW] src/components/pdf/PDFHighlighter.tsx
+- Text selection highlighting
+- Area highlighting
+- Notes on highlights
+
+### [MODIFY] [RightSidebar.tsx](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/components/layout/RightSidebar.tsx)
+- Add PDF viewer tab
+- Add highlights list panel
+
+---
+
+## Phase 7: Search (MiniSearch)
+
+### [NEW] Dependencies
+```bash
+pnpm add minisearch
+```
+
+### [NEW] src/lib/search.ts
+- Initialize MiniSearch with fields: title, content, tags, filename
+- Index management (add, update, remove documents)
+- Search with fuzzy matching
+
+### [NEW] src/components/search/GlobalSearch.tsx
+- Search input with keyboard shortcut (Cmd/Ctrl+K)
+- Grouped results by type
+- Click to navigate
+
+### [MODIFY] [TopBar.tsx](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/components/layout/TopBar.tsx)
+- Add search button/input
+- Integrate GlobalSearch component
+
+---
+
+## Phase 8: File System & Import/Export
+
+### [NEW] src-tauri/src/commands/files.rs
+- Copy files to project directory
+- Generate thumbnails
+- Handle import modes
+
+### [NEW] src/components/modals/ImportModal.tsx
+- File picker integration
+- Batch import (images, PDFs)
+- Copy vs link mode selection
+
+### [NEW] src/components/modals/ExportModal.tsx
+- Export cards to Markdown
+- Export canvas to image/PDF
+- Export project to ZIP
+
+### [NEW] src/lib/backup.ts
+- Automatic backup scheduling
+- Backup to ZIP
+- Restore from backup
+
+---
+
+## Phase 9: Advanced Features
+
+### [NEW] src/components/canvas/shapes/MindMapShape.tsx
+- Interactive nested structure
+- Multiple layouts
+- Collapse/expand
+
+### [NEW] src/components/presentation/PresentationMode.tsx
+- Full-screen mode
+- Frame navigation
+- Laser pointer
+
+### [NEW] src/components/journal/JournalView.tsx
+- Calendar view
+- Daily entries with TipTap
+- Quick navigation
+
+### [NEW] src/components/modals/SettingsModal.tsx
+- Appearance (theme, colors, grid)
+- Behavior (auto-save, defaults)
+- Storage (usage, cleanup)
+- Shortcuts (customizable keybindings)
+
+---
+
+## Phase 10: Integration & Polish
+
+### Connect All Systems
+- Wire Zustand stores to UI components
+- Connect SQLite to all data operations
+- Set up auto-save pipeline
+- Implement version history
+
+### Performance Optimization
+- Virtual rendering for large canvases (tldraw built-in)
+- Progressive image loading
+- Lazy loading for PDF pages
+
+### Error Handling
+- Database error recovery
+- File operation fallbacks
+- User-friendly error messages
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+Since this is a major architectural migration, tests need to be added progressively:
+
+1. **Zustand Store Tests**
+   - Create `src/stores/__tests__/` directory
+   - Test each store's CRUD operations
+   - Run: `pnpm vitest run src/stores`
+
+2. **Database Integration Tests**
+   - Test Tauri commands via Tauri test harness
+   - Run: `cd src-tauri && cargo test`
+
+### Manual Verification
+
+Each phase requires manual verification:
+
+| Phase | Verification Steps |
+|-------|-------------------|
+| 0: Tauri | Run `pnpm tauri dev` - app window opens successfully |
+| 1: Zustand | Create/edit/delete items - state persists correctly |
+| 2: SQLite | Restart app - all data loads from database |
+| 3: tldraw | Draw shapes, zoom, pan - matches current canvas behavior |
+| 4: TipTap | Edit card content with formatting - saves correctly |
+| 5: dnd-kit | Drag items from library to canvas - creates shapes |
+| 6: PDF | Import PDF, view pages, create highlights |
+| 7: Search | Type to search, results update, click navigates |
+| 8: Import/Export | Export project, reimport, data intact |
+
+### Build Verification
+```bash
+pnpm tauri build        # Produces Windows installer
+```
+
+---
+
+## Timeline Estimate
+
+| Phase | Estimated Duration |
+|-------|-------------------|
+| Phase 0: Foundation | 1-2 days |
+| Phase 1: Zustand | 1 day |
+| Phase 2: SQLite | 2-3 days |
+| Phase 3: tldraw | 3-4 days |
+| Phase 4: TipTap | 2-3 days |
+| Phase 5: dnd-kit | 1-2 days |
+| Phase 6: PDF | 3-4 days |
+| Phase 7: Search | 1 day |
+| Phase 8: Import/Export | 2-3 days |
+| Phase 9: Advanced | 4-5 days |
+| Phase 10: Polish | 2-3 days |
+| **Total** | **~25-35 days** |
+
+---
+
+## Dependencies Summary
+
+```json
+{
+  "dependencies": {
+    "@tldraw/tldraw": "^2.0.0",
+    "@tiptap/react": "^2.1.0",
+    "@tiptap/starter-kit": "^2.1.0",
+    "@tiptap/extension-link": "^2.1.0",
+    "@tiptap/extension-image": "^2.1.0",
+    "@tiptap/extension-task-list": "^2.1.0",
+    "@tiptap/extension-task-item": "^2.1.0",
+    "@tiptap/extension-color": "^2.1.0",
+    "@tiptap/extension-highlight": "^2.1.0",
+    "@tiptap/extension-code-block-lowlight": "^2.1.0",
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "zustand": "^4.4.7",
+    "immer": "^10.0.3",
+    "react-pdf": "^7.5.1",
+    "pdfjs-dist": "^3.11.174",
+    "minisearch": "^6.3.0",
+    "nanoid": "^5.0.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.0",
+    "@tauri-apps/api": "^1.5.0",
+    "vitest": "^1.0.0"
+  }
+}
+```
