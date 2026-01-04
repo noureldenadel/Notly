@@ -1,28 +1,30 @@
-import { 
-  ChevronDown, 
-  Plus, 
-  Share, 
+import {
+  ChevronDown,
+  Plus,
+  Share,
   MoreHorizontal,
   Undo2,
   Redo2,
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useEditor } from "@/hooks/useEditorContext";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopBarProps {
   projectName: string;
   boards: { id: string; name: string }[];
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
-  zoomLevel: number;
 }
 
-export const TopBar = ({ projectName, boards, activeBoard, onBoardChange, zoomLevel }: TopBarProps) => {
+export const TopBar = ({ projectName, boards, activeBoard, onBoardChange }: TopBarProps) => {
+  const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
+
   return (
     <div className="h-11 bg-card border-b border-border flex items-center px-3 gap-3">
       {/* Project Info */}
@@ -59,28 +61,102 @@ export const TopBar = ({ projectName, boards, activeBoard, onBoardChange, zoomLe
 
       {/* Right Actions */}
       <div className="flex items-center gap-1">
-        {/* History */}
+        {/* History - wired to tldraw */}
         <div className="flex items-center gap-0.5 mr-2">
-          <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-foreground">
-            <Undo2 className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-foreground">
-            <Redo2 className="w-3.5 h-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "w-7 h-7",
+                  canUndo ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+                )}
+                onClick={undo}
+                disabled={!canUndo}
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <span>Undo</span>
+              <kbd className="ml-2 text-[10px] bg-muted px-1 py-0.5 rounded">Ctrl+Z</kbd>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "w-7 h-7",
+                  canRedo ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+                )}
+                onClick={redo}
+                disabled={!canRedo}
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <span>Redo</span>
+              <kbd className="ml-2 text-[10px] bg-muted px-1 py-0.5 rounded">Ctrl+Y</kbd>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Zoom Controls */}
+        {/* Zoom Controls - wired to tldraw */}
         <div className="flex items-center gap-0.5 px-2 py-1 bg-muted/50 rounded-md">
-          <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground">
-            <ZoomOut className="w-3.5 h-3.5" />
-          </Button>
-          <span className="text-xs font-medium w-10 text-center">{zoomLevel}%</span>
-          <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground">
-            <ZoomIn className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="w-6 h-6 text-muted-foreground hover:text-foreground">
-            <Maximize2 className="w-3.5 h-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 text-muted-foreground hover:text-foreground"
+                onClick={zoomOut}
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Zoom Out</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-xs font-medium w-10 text-center hover:text-foreground"
+                onClick={resetZoom}
+              >
+                {zoomLevel}%
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Reset Zoom (Click)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 text-muted-foreground hover:text-foreground"
+                onClick={zoomIn}
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Zoom In</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 text-muted-foreground hover:text-foreground"
+                onClick={zoomToFit}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Zoom to Fit</TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="w-px h-5 bg-border mx-1" />

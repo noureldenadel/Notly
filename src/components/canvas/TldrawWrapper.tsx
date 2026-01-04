@@ -2,9 +2,6 @@ import { useCallback, useMemo } from 'react';
 import {
     Tldraw,
     Editor,
-    TLComponents,
-    TLUiOverrides,
-    TLStoreEventInfo,
     getSnapshot,
     loadSnapshot,
 } from 'tldraw';
@@ -24,19 +21,6 @@ interface TldrawWrapperProps {
     onSnapshotChange?: (snapshot: string) => void;
     className?: string;
 }
-
-// UI overrides for custom tools
-const uiOverrides: TLUiOverrides = {
-    tools(editor, tools) {
-        // Add custom tools here
-        return tools;
-    },
-};
-
-// Custom components
-const components: TLComponents = {
-    // Can customize toolbar, menus, etc.
-};
 
 export function TldrawWrapper({
     boardId,
@@ -65,8 +49,8 @@ export function TldrawWrapper({
             }
 
             // Subscribe to store changes for auto-save
-            const unsubscribe = editor.store.listen(
-                (info: TLStoreEventInfo) => {
+            editor.store.listen(
+                (info) => {
                     if (info.source === 'user') {
                         incrementPendingChanges();
 
@@ -95,11 +79,6 @@ export function TldrawWrapper({
             onEditorReady?.(editor);
 
             console.log('[tldraw] Editor mounted for board:', boardId);
-
-            // Cleanup on unmount
-            return () => {
-                unsubscribe();
-            };
         },
         [boardId, initialSnapshot, onEditorReady, onSnapshotChange, setEditorRef, setViewport, incrementPendingChanges, recordAutoSave]
     );
@@ -111,10 +90,10 @@ export function TldrawWrapper({
         <div className={`w-full h-full ${className}`} style={{ position: 'relative' }}>
             <Tldraw
                 shapeUtils={shapeUtils}
-                overrides={uiOverrides}
-                components={components}
                 onMount={handleMount}
                 inferDarkMode={true}
+                // Hide tldraw's default UI - we use our own
+                hideUi={true}
             />
         </div>
     );

@@ -1,8 +1,8 @@
-import { 
-  MousePointer2, 
-  Hand, 
-  Pencil, 
-  Eraser, 
+import {
+  MousePointer2,
+  Hand,
+  Pencil,
+  Eraser,
   ArrowRight,
   Type,
   Square,
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useEditor } from "@/hooks/useEditorContext";
 
 interface ToolButtonProps {
   icon: React.ReactNode;
@@ -36,8 +37,8 @@ const ToolButton = ({ icon, label, shortcut, isActive, onClick }: ToolButtonProp
         onClick={onClick}
         className={cn(
           "w-9 h-9 relative transition-all",
-          isActive 
-            ? "bg-primary/20 text-primary hover:bg-primary/30" 
+          isActive
+            ? "bg-primary/20 text-primary hover:bg-primary/30"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
       >
@@ -62,6 +63,20 @@ interface BottomToolbarProps {
 }
 
 export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) => {
+  const { setTool, insertImage } = useEditor();
+
+  // Handle tool change - sync with both local state and tldraw
+  const handleToolChange = (toolId: string) => {
+    // Special handling for image - triggers file dialog instead of tool switch
+    if (toolId === 'image') {
+      insertImage();
+      return;
+    }
+
+    onToolChange(toolId);
+    setTool(toolId);
+  };
+
   const coreTools = [
     { id: "select", icon: <MousePointer2 className="w-4 h-4" />, label: "Select", shortcut: "V" },
     { id: "hand", icon: <Hand className="w-4 h-4" />, label: "Hand", shortcut: "H" },
@@ -80,7 +95,7 @@ export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) 
 
   const customTools = [
     { id: "card", icon: <FileText className="w-4 h-4" />, label: "Card", shortcut: "C" },
-    { id: "image", icon: <Image className="w-4 h-4" />, label: "Image", shortcut: "I" },
+    { id: "image", icon: <Image className="w-4 h-4" />, label: "Insert Image", shortcut: "I" },
     { id: "pdf", icon: <FileType className="w-4 h-4" />, label: "PDF", shortcut: "P" },
     { id: "mindmap", icon: <Sparkles className="w-4 h-4" />, label: "Mind Map", shortcut: "M" },
   ];
@@ -97,7 +112,7 @@ export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) 
               label={tool.label}
               shortcut={tool.shortcut}
               isActive={activeTool === tool.id}
-              onClick={() => onToolChange(tool.id)}
+              onClick={() => handleToolChange(tool.id)}
             />
           ))}
         </div>
@@ -113,7 +128,7 @@ export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) 
               label={tool.label}
               shortcut={tool.shortcut}
               isActive={activeTool === tool.id}
-              onClick={() => onToolChange(tool.id)}
+              onClick={() => handleToolChange(tool.id)}
             />
           ))}
         </div>
@@ -129,7 +144,7 @@ export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) 
               label={tool.label}
               shortcut={tool.shortcut}
               isActive={activeTool === tool.id}
-              onClick={() => onToolChange(tool.id)}
+              onClick={() => handleToolChange(tool.id)}
             />
           ))}
         </div>

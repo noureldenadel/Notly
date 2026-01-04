@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Editor } from 'tldraw';
 import { TldrawWrapper, createCardOnCanvas } from './TldrawWrapper';
 import { useProjectStore, useCardStore } from '@/stores';
+import { useEditor } from '@/hooks/useEditorContext';
 import { Plus } from 'lucide-react';
 
 interface CanvasAreaProps {
@@ -9,15 +10,15 @@ interface CanvasAreaProps {
 }
 
 export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
-  const [editor, setEditor] = useState<Editor | null>(null);
   const { activeBoardId } = useProjectStore();
   const { createCard } = useCardStore();
+  const { editor, setEditor } = useEditor();
 
   // Handle editor ready
   const handleEditorReady = useCallback((ed: Editor) => {
     setEditor(ed);
     console.log('[CanvasArea] Editor ready');
-  }, []);
+  }, [setEditor]);
 
   // Handle snapshot changes (for auto-save)
   const handleSnapshotChange = useCallback((snapshot: string) => {
@@ -51,7 +52,7 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
 
   return (
     <div className="flex-1 relative overflow-hidden">
-      {/* tldraw Canvas */}
+      {/* tldraw Canvas (UI hidden - using our own) */}
       <TldrawWrapper
         boardId={boardId || activeBoardId || undefined}
         onEditorReady={handleEditorReady}
