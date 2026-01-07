@@ -34,7 +34,7 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
             filename: 'Document.pdf',
             pageNumber: 1,
             totalPages: 1,
-            thumbnailPath: undefined,
+            thumbnailPath: '', // Use empty string instead of undefined for JSON serialization
         };
     }
 

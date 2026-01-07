@@ -7,6 +7,7 @@ export { useTagStore } from './tagStore';
 export { useSearchStore } from './searchStore';
 export { useUIStore } from './uiStore';
 export { useSyncStore } from './syncStore';
+export { usePDFStore } from './pdfStore';
 
 // Type exports
 export type {

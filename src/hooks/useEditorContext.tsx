@@ -24,6 +24,7 @@ interface EditorContextType {
 
     // Asset actions
     insertImage: () => void;
+    insertPDF: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -179,6 +180,62 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         input.click();
     }, [editor]);
 
+    // Insert PDF via file dialog
+    const insertPDF = useCallback(() => {
+        console.log('[insertPDF] Called, editor:', !!editor);
+
+        // Create file input element
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,application/pdf';
+        input.multiple = false;
+
+        input.onchange = async (e) => {
+            console.log('[insertPDF] File selected');
+            const files = (e.target as HTMLInputElement).files;
+            if (!files || files.length === 0) return;
+            if (!editor) {
+                console.error('[insertPDF] No editor available');
+                return;
+            }
+
+            const file = files[0];
+
+            try {
+                // Create object URL for the PDF
+                const objectUrl = URL.createObjectURL(file);
+
+                // Get center of viewport for placement
+                const camera = editor.getCamera();
+                const viewportBounds = editor.getViewportScreenBounds();
+                const x = -camera.x + viewportBounds.width / 2 / camera.z - 100;
+                const y = -camera.y + viewportBounds.height / 2 / camera.z - 130;
+
+                // Create PDF shape - only pass defined string/number values
+                editor.createShape({
+                    type: 'pdf',
+                    x,
+                    y,
+                    props: {
+                        w: 200,
+                        h: 260,
+                        fileId: String(objectUrl || ''),
+                        filename: String(file.name || 'Document.pdf'),
+                        pageNumber: 1,
+                        totalPages: 1,
+                        // Note: thumbnailPath will use default from getDefaultProps()
+                    },
+                });
+
+                console.log('[insertPDF] PDF shape created successfully');
+            } catch (error) {
+                console.error('Failed to insert PDF:', error);
+            }
+        };
+
+        input.click();
+    }, [editor]);
+
     const undo = useCallback(() => {
         if (editor?.getCanUndo()) {
             editor.undo();
@@ -227,6 +284,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 resetZoom,
                 zoomLevel,
                 insertImage,
+                insertPDF,
             }}
         >
             {children}

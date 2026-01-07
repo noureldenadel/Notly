@@ -1,14 +1,14 @@
 import { useState } from "react";
-import {
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Search,
-  Star,
-  Clock,
-  FolderOpen,
-  FileText,
-  Image,
+import { 
+  ChevronRight, 
+  ChevronDown, 
+  Plus, 
+  Search, 
+  Star, 
+  Clock, 
+  FolderOpen, 
+  FileText, 
+  Image, 
   Highlighter,
   Tag,
   Home,
@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DraggableLibraryItem, DraggableItem, SortableItem, SortableList, arrayMove } from "@/components/dnd";
 
 interface SidebarSectionProps {
   title: string;
@@ -70,8 +69,8 @@ const SidebarItem = ({ icon, label, isActive, onClick, badge, color }: SidebarIt
     onClick={onClick}
     className={cn(
       "flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-md transition-all group",
-      isActive
-        ? "bg-primary/10 text-primary"
+      isActive 
+        ? "bg-primary/10 text-primary" 
         : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     )}
   >
@@ -102,8 +101,8 @@ const ProjectItem = ({ name, color, isActive, boards = [] }: ProjectItemProps) =
         onClick={() => setIsExpanded(!isExpanded)}
         className={cn(
           "flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-md transition-all group",
-          isActive
-            ? "bg-primary/10 text-primary"
+          isActive 
+            ? "bg-primary/10 text-primary" 
             : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
       >
@@ -143,36 +142,35 @@ interface LeftSidebarProps {
 export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
   const [activeTab, setActiveTab] = useState("cards");
 
-  // State for sortable favorites
-  const [favoriteItems, setFavoriteItems] = useState([
-    { id: "fav-1", name: "Design System" },
-    { id: "fav-2", name: "Weekly Planning" },
-  ]);
-
   const projects = [
-    {
-      id: "1",
-      name: "Research Notes",
+    { 
+      id: "1", 
+      name: "Research Notes", 
       color: "bg-highlight-blue",
       boards: [
         { id: "1a", name: "Literature Review" },
         { id: "1b", name: "Key Findings" },
       ]
     },
-    {
-      id: "2",
-      name: "Product Design",
+    { 
+      id: "2", 
+      name: "Product Design", 
       color: "bg-highlight-purple",
       boards: [
         { id: "2a", name: "User Flows" },
       ]
     },
-    {
-      id: "3",
-      name: "Learning",
+    { 
+      id: "3", 
+      name: "Learning", 
       color: "bg-highlight-green",
       boards: []
     },
+  ];
+
+  const favorites = [
+    { id: "1", name: "Design System", icon: <FileText className="w-4 h-4" /> },
+    { id: "2", name: "Weekly Planning", icon: <FileText className="w-4 h-4" /> },
   ];
 
   const recents = [
@@ -226,12 +224,12 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
             <ChevronRight className="w-3 h-3 rotate-180" />
           </Button>
         </div>
-
+        
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search everything..."
+          <Input 
+            placeholder="Search everything..." 
             className="h-8 pl-8 text-sm bg-sidebar-accent border-none focus-visible:ring-1 focus-visible:ring-primary/50"
           />
           <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -256,59 +254,46 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto py-2">
-        {/* Favorites - Sortable */}
-        <SidebarSection
-          title="Favorites"
+        {/* Favorites */}
+        <SidebarSection 
+          title="Favorites" 
           icon={<Star className="w-3 h-3" />}
           actions={<Plus className="w-3 h-3" />}
         >
-          <SortableList
-            items={favoriteItems.map(f => f.id)}
-            onReorder={(ids) => {
-              const reordered = ids.map(id => favoriteItems.find(f => f.id === id)!);
-              setFavoriteItems(reordered);
-            }}
-          >
-            <div className="space-y-0.5 px-1">
-              {favoriteItems.map((item) => (
-                <SortableItem key={item.id} id={item.id}>
-                  <SidebarItem
-                    icon={<FileText className="w-4 h-4" />}
-                    label={item.name}
-                  />
-                </SortableItem>
-              ))}
-            </div>
-          </SortableList>
+          <div className="space-y-0.5 px-1">
+            {favorites.map((item) => (
+              <SidebarItem key={item.id} icon={item.icon} label={item.name} />
+            ))}
+          </div>
         </SidebarSection>
 
         {/* Recents */}
-        <SidebarSection
-          title="Recents"
+        <SidebarSection 
+          title="Recents" 
           icon={<Clock className="w-3 h-3" />}
         >
           <div className="space-y-0.5 px-1">
             {recents.map((item) => (
-              <SidebarItem
-                key={item.id}
-                icon={item.type === "card" ? <FileText className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                label={item.name}
+              <SidebarItem 
+                key={item.id} 
+                icon={item.type === "card" ? <FileText className="w-4 h-4" /> : <Image className="w-4 h-4" />} 
+                label={item.name} 
               />
             ))}
           </div>
         </SidebarSection>
 
         {/* Projects */}
-        <SidebarSection
-          title="Projects"
+        <SidebarSection 
+          title="Projects" 
           icon={<FolderOpen className="w-3 h-3" />}
           actions={<Plus className="w-3 h-3" />}
         >
           <div className="space-y-0.5 px-1">
             {projects.map((project) => (
-              <ProjectItem
-                key={project.id}
-                name={project.name}
+              <ProjectItem 
+                key={project.id} 
+                name={project.name} 
                 color={project.color}
                 boards={project.boards}
               />
@@ -317,7 +302,7 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
         </SidebarSection>
 
         {/* Library */}
-        <SidebarSection
+        <SidebarSection 
           title="Library"
         >
           <div className="px-2">
@@ -341,47 +326,26 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
                   Drag cards to canvas
                 </div>
                 <div className="space-y-1">
-                  {[
-                    { id: 'card-1', title: 'Research Summary', color: 'highlight-blue' },
-                    { id: 'card-2', title: 'Key Insights', color: 'highlight-purple' },
-                    { id: 'card-3', title: 'Action Items', color: 'highlight-green' },
-                  ].map((card) => (
-                    <DraggableLibraryItem
-                      key={card.id}
-                      item={{
-                        id: card.id,
-                        type: 'card',
-                        data: { title: card.title, content: '', color: card.color },
-                      }}
+                  {["Research Summary", "Key Insights", "Action Items"].map((card) => (
+                    <div 
+                      key={card}
+                      className="p-2 bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
                     >
-                      <div className="p-2 bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20">
-                        <p className="text-xs font-medium truncate">{card.title}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">3 min ago</p>
-                      </div>
-                    </DraggableLibraryItem>
+                      <p className="text-xs font-medium truncate">{card}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">3 min ago</p>
+                    </div>
                   ))}
                 </div>
               </TabsContent>
               <TabsContent value="files" className="mt-2">
                 <div className="grid grid-cols-2 gap-1">
-                  {[
-                    { id: 'file-1', filename: 'Document.pdf' },
-                    { id: 'file-2', filename: 'Image.png' },
-                    { id: 'file-3', filename: 'Notes.pdf' },
-                    { id: 'file-4', filename: 'Photo.jpg' },
-                  ].map((file) => (
-                    <DraggableLibraryItem
-                      key={file.id}
-                      item={{
-                        id: file.id,
-                        type: file.filename.endsWith('.pdf') ? 'pdf' : 'file',
-                        data: { filename: file.filename },
-                      }}
+                  {[1, 2, 3, 4].map((i) => (
+                    <div 
+                      key={i}
+                      className="aspect-square bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors flex items-center justify-center"
                     >
-                      <div className="aspect-square bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors flex items-center justify-center">
-                        <Image className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                    </DraggableLibraryItem>
+                      <Image className="w-6 h-6 text-muted-foreground" />
+                    </div>
                   ))}
                 </div>
               </TabsContent>
@@ -395,8 +359,8 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
         </SidebarSection>
 
         {/* Tags */}
-        <SidebarSection
-          title="Tags"
+        <SidebarSection 
+          title="Tags" 
           icon={<Tag className="w-3 h-3" />}
           actions={<Plus className="w-3 h-3" />}
           defaultOpen={false}
