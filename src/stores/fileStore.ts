@@ -2,10 +2,39 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { FileEntry } from './types';
+import type { FileEntry as PFileEntry } from '@/lib/persistence/types';
+
+// Helper to save file to persistence
+async function saveFileToPersistence(file: FileEntry) {
+    try {
+        const { getPersistence } = await import('@/lib/persistence');
+        const p = await getPersistence();
+        await p.saveFile({
+            id: file.id,
+            filename: file.filename,
+            filePath: file.filePath,
+            fileType: file.fileType,
+            fileSize: file.fileSize,
+            mimeType: file.mimeType,
+            thumbnailPath: file.thumbnailPath,
+            importMode: file.importMode,
+            createdAt: file.createdAt,
+            updatedAt: file.updatedAt,
+            metadata: file.metadata ? JSON.stringify(file.metadata) : undefined,
+        });
+        console.log('[FileStore] Saved file:', file.id);
+    } catch (e) {
+        console.error('[FileStore] Error saving file:', e);
+    }
+}
 
 interface FileState {
     // Data
     files: FileEntry[];
+    isLoaded: boolean;
+
+    // Load from persistence
+    loadFiles: () => Promise<void>;
 
     // Actions
     addFile: (
@@ -37,6 +66,37 @@ export const useFileStore = create<FileState>()(
     immer((set, get) => ({
         // Initial state
         files: [],
+        isLoaded: false,
+
+        // Load from persistence
+        loadFiles: async () => {
+            if (get().isLoaded) return;
+            try {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                const files = await p.getFiles();
+                set((state) => {
+                    state.files = files.map((f: PFileEntry) => ({
+                        id: f.id,
+                        filename: f.filename,
+                        filePath: f.filePath,
+                        fileType: f.fileType as FileEntry['fileType'],
+                        fileSize: f.fileSize,
+                        mimeType: f.mimeType,
+                        thumbnailPath: f.thumbnailPath,
+                        importMode: f.importMode as 'copy' | 'link',
+                        createdAt: f.createdAt,
+                        updatedAt: f.updatedAt,
+                        metadata: f.metadata ? JSON.parse(f.metadata) : undefined,
+                    }));
+                    state.isLoaded = true;
+                });
+                console.log('[FileStore] Loaded', files.length, 'files');
+            } catch (e) {
+                console.error('[FileStore] Error loading files:', e);
+                set((state) => { state.isLoaded = true; });
+            }
+        },
 
         // Actions
         addFile: (filename, filePath, fileType, options = {}) => {
@@ -57,6 +117,7 @@ export const useFileStore = create<FileState>()(
             set((state) => {
                 state.files.push(file);
             });
+            saveFileToPersistence(file);
             return file;
         },
 
@@ -65,6 +126,7 @@ export const useFileStore = create<FileState>()(
                 const file = state.files.find((f) => f.id === id);
                 if (file) {
                     Object.assign(file, updates, { updatedAt: Date.now() });
+                    saveFileToPersistence(file);
                 }
             });
         },
@@ -73,6 +135,12 @@ export const useFileStore = create<FileState>()(
             set((state) => {
                 state.files = state.files.filter((f) => f.id !== id);
             });
+            // Delete from persistence
+            (async () => {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                await p.deleteFile(id);
+            })();
         },
 
         setThumbnail: (id, thumbnailPath) => {
@@ -81,6 +149,7 @@ export const useFileStore = create<FileState>()(
                 if (file) {
                     file.thumbnailPath = thumbnailPath;
                     file.updatedAt = Date.now();
+                    saveFileToPersistence(file);
                 }
             });
         },

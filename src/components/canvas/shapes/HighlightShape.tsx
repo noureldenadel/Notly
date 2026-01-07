@@ -152,7 +152,7 @@ export class HighlightShapeUtil extends BaseBoxShapeUtil<HighlightShape> {
                     style={{
                         fontSize: '12px',
                         lineHeight: 1.5,
-                        color: 'var(--color-text)',
+                        color: 'hsl(var(--foreground))',
                         margin: 0,
                         fontStyle: 'italic',
                         overflow: 'hidden',
@@ -171,10 +171,10 @@ export class HighlightShapeUtil extends BaseBoxShapeUtil<HighlightShape> {
                     <p
                         style={{
                             fontSize: '11px',
-                            color: 'var(--color-text-1)',
+                            color: 'hsl(var(--muted-foreground))',
                             margin: '8px 0 0 0',
                             padding: '6px 8px',
-                            backgroundColor: 'rgba(0,0,0,0.2)',
+                            backgroundColor: 'hsl(var(--muted))',
                             borderRadius: '4px',
                         }}
                     >

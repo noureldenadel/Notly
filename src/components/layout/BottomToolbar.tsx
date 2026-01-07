@@ -63,7 +63,7 @@ interface BottomToolbarProps {
 }
 
 export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) => {
-  const { setTool, insertImage, insertPDF } = useEditor();
+  const { setTool, insertImage, insertPDF, insertCard } = useEditor();
 
   // Handle tool change - sync with both local state and tldraw
   const handleToolChange = (toolId: string) => {
@@ -76,6 +76,12 @@ export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) 
     // Special handling for PDF - triggers file dialog instead of tool switch
     if (toolId === 'pdf') {
       insertPDF();
+      return;
+    }
+
+    // Special handling for card - creates card at viewport center
+    if (toolId === 'card') {
+      insertCard();
       return;
     }
 

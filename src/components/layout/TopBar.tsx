@@ -8,6 +8,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Settings,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,9 +22,11 @@ interface TopBarProps {
   boards: { id: string; name: string }[];
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
+  onSettingsClick?: () => void;
+  onSearchClick?: () => void;
 }
 
-export const TopBar = ({ projectName, boards, activeBoard, onBoardChange }: TopBarProps) => {
+export const TopBar = ({ projectName, boards, activeBoard, onBoardChange, onSettingsClick, onSearchClick }: TopBarProps) => {
   const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
 
   return (
@@ -177,10 +181,41 @@ export const TopBar = ({ projectName, boards, activeBoard, onBoardChange }: TopB
           Share
         </Button>
 
-        {/* More */}
-        <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-foreground">
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
+        {/* Search */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7 h-7 text-muted-foreground hover:text-foreground"
+              onClick={onSearchClick}
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <span>Search</span>
+            <kbd className="ml-2 text-[10px] bg-muted px-1 py-0.5 rounded">⌘K</kbd>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Settings */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7 h-7 text-muted-foreground hover:text-foreground"
+              onClick={onSettingsClick}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <span>Settings</span>
+            <kbd className="ml-2 text-[10px] bg-muted px-1 py-0.5 rounded">⌘,</kbd>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

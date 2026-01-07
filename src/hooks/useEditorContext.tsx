@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Editor, AssetRecordType } from 'tldraw';
 import { nanoid } from 'nanoid';
+import { useCardStore } from '@/stores';
 
 interface EditorContextType {
     editor: Editor | null;
@@ -25,6 +26,7 @@ interface EditorContextType {
     // Asset actions
     insertImage: () => void;
     insertPDF: () => void;
+    insertCard: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -152,21 +154,26 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                         // Add asset to store
                         editor.createAssets([asset]);
 
-                        // Get center of viewport for placement
+                        // Calculate scaled dimensions (max 600px width/height)
+                        const scaledWidth = Math.min(img.width, 600);
+                        const aspectRatio = img.height / img.width;
+                        const scaledHeight = scaledWidth * aspectRatio;
+
+                        // Get center of viewport for placement - use SCALED dimensions
                         const camera = editor.getCamera();
                         const viewportBounds = editor.getViewportScreenBounds();
-                        const x = -camera.x + viewportBounds.width / 2 / camera.z - img.width / 2;
-                        const y = -camera.y + viewportBounds.height / 2 / camera.z - img.height / 2;
+                        const x = -camera.x + viewportBounds.width / 2 / camera.z - scaledWidth / 2;
+                        const y = -camera.y + viewportBounds.height / 2 / camera.z - scaledHeight / 2;
 
-                        // Create image shape
+                        // Create image shape at center of viewport
                         editor.createShape({
                             type: 'image',
                             x,
                             y,
                             props: {
                                 assetId,
-                                w: Math.min(img.width, 600), // Max width 600
-                                h: Math.min(img.height, 600) * (img.height / img.width),
+                                w: scaledWidth,
+                                h: scaledHeight,
                             },
                         });
                     };
@@ -205,13 +212,44 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 // Create object URL for the PDF
                 const objectUrl = URL.createObjectURL(file);
 
+                // Load PDF to get page count and generate thumbnail
+                const { pdfjs } = await import('react-pdf');
+                pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+                const loadingTask = pdfjs.getDocument(objectUrl);
+                const pdf = await loadingTask.promise;
+                const totalPages = pdf.numPages;
+                console.log('[insertPDF] PDF loaded, total pages:', totalPages);
+
+                // Generate thumbnail of first page
+                let thumbnailPath = '';
+                try {
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 0.5 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const context = canvas.getContext('2d');
+                    if (context) {
+                        await page.render({
+                            canvasContext: context,
+                            viewport: viewport,
+                            canvas: canvas,
+                        }).promise;
+                        thumbnailPath = canvas.toDataURL('image/png');
+                        console.log('[insertPDF] Thumbnail generated');
+                    }
+                } catch (thumbError) {
+                    console.warn('[insertPDF] Failed to generate thumbnail:', thumbError);
+                }
+
                 // Get center of viewport for placement
                 const camera = editor.getCamera();
                 const viewportBounds = editor.getViewportScreenBounds();
                 const x = -camera.x + viewportBounds.width / 2 / camera.z - 100;
                 const y = -camera.y + viewportBounds.height / 2 / camera.z - 130;
 
-                // Create PDF shape - only pass defined string/number values
+                // Create PDF shape with actual metadata
                 editor.createShape({
                     type: 'pdf',
                     x,
@@ -222,18 +260,54 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                         fileId: String(objectUrl || ''),
                         filename: String(file.name || 'Document.pdf'),
                         pageNumber: 1,
-                        totalPages: 1,
-                        // Note: thumbnailPath will use default from getDefaultProps()
+                        totalPages: totalPages,
+                        thumbnailPath: thumbnailPath,
                     },
                 });
 
-                console.log('[insertPDF] PDF shape created successfully');
+                console.log('[insertPDF] PDF shape created successfully with', totalPages, 'pages');
             } catch (error) {
                 console.error('Failed to insert PDF:', error);
             }
         };
 
         input.click();
+    }, [editor]);
+
+    // Insert card at center of viewport
+    const insertCard = useCallback(() => {
+        console.log('[insertCard] Called, editor:', !!editor);
+        if (!editor) {
+            console.error('[insertCard] No editor available');
+            return;
+        }
+
+        // Get center of viewport for placement
+        const camera = editor.getCamera();
+        const viewportBounds = editor.getViewportScreenBounds();
+        const x = -camera.x + viewportBounds.width / 2 / camera.z - 140;
+        const y = -camera.y + viewportBounds.height / 2 / camera.z - 80;
+
+        // Create card in store (persists and indexes)
+        const card = useCardStore.getState().createCard('', 'New Card', 'highlight-blue');
+
+        // Create card shape on canvas
+        editor.createShape({
+            type: 'card',
+            x,
+            y,
+            props: {
+                w: 280,
+                h: 160,
+                cardId: card.id,
+                title: card.title || 'New Card',
+                content: card.content,
+                color: card.color || 'highlight-blue',
+                isEditing: false,
+            },
+        });
+
+        console.log('[insertCard] Card created with ID:', card.id);
     }, [editor]);
 
     const undo = useCallback(() => {
@@ -285,6 +359,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 zoomLevel,
                 insertImage,
                 insertPDF,
+                insertCard,
             }}
         >
             {children}

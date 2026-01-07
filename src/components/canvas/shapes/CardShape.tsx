@@ -106,7 +106,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                             fontSize: '14px',
                             fontWeight: 600,
                             lineHeight: 1.3,
-                            color: 'var(--color-text)',
+                            color: 'hsl(var(--foreground))',
                             margin: 0,
                         }}
                     >
@@ -119,7 +119,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                     style={{
                         fontSize: '12px',
                         lineHeight: 1.5,
-                        color: 'var(--color-text-1)',
+                        color: 'hsl(var(--muted-foreground))',
                         margin: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -146,9 +146,9 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                         style={{
                             fontSize: '10px',
                             padding: '2px 8px',
-                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            backgroundColor: 'hsl(var(--muted))',
                             borderRadius: '999px',
-                            color: 'var(--color-text-1)',
+                            color: 'hsl(var(--muted-foreground))',
                         }}
                     >
                         {shape.props.content.split(/\s+/).filter(Boolean).length} words
@@ -181,7 +181,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
         // Toggle editing mode - this will be connected to TipTap later
         return {
             id: shape.id,
-            type: 'card',
+            type: 'card' as const,
             props: {
                 ...shape.props,
                 isEditing: !shape.props.isEditing,

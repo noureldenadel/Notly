@@ -2,11 +2,35 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Tag, TagRelation } from './types';
+import type { Tag as PTag } from '@/lib/persistence/types';
+
+// Helper to save tag to persistence
+async function saveTagToPersistence(tag: Tag) {
+    try {
+        const { getPersistence } = await import('@/lib/persistence');
+        const p = await getPersistence();
+        await p.saveTag({
+            id: tag.id,
+            name: tag.name,
+            color: tag.color,
+            groupId: tag.groupId,
+            position: tag.position,
+            createdAt: tag.createdAt,
+        });
+        console.log('[TagStore] Saved tag:', tag.id);
+    } catch (e) {
+        console.error('[TagStore] Error saving tag:', e);
+    }
+}
 
 interface TagState {
     // Data
     tags: Tag[];
     relations: TagRelation[];
+    isLoaded: boolean;
+
+    // Load from persistence
+    loadTags: () => Promise<void>;
 
     // Tag actions
     createTag: (name: string, color?: string, groupId?: string) => Tag;
@@ -33,6 +57,32 @@ export const useTagStore = create<TagState>()(
         // Initial state
         tags: [],
         relations: [],
+        isLoaded: false,
+
+        // Load from persistence
+        loadTags: async () => {
+            if (get().isLoaded) return;
+            try {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                const tags = await p.getTags();
+                set((state) => {
+                    state.tags = tags.map((t: PTag) => ({
+                        id: t.id,
+                        name: t.name,
+                        color: t.color,
+                        groupId: t.groupId,
+                        position: t.position,
+                        createdAt: t.createdAt,
+                    }));
+                    state.isLoaded = true;
+                });
+                console.log('[TagStore] Loaded', tags.length, 'tags');
+            } catch (e) {
+                console.error('[TagStore] Error loading tags:', e);
+                set((state) => { state.isLoaded = true; });
+            }
+        },
 
         // Tag actions
         createTag: (name, color, groupId) => {
@@ -49,6 +99,7 @@ export const useTagStore = create<TagState>()(
             set((state) => {
                 state.tags.push(tag);
             });
+            saveTagToPersistence(tag);
             return tag;
         },
 
@@ -57,6 +108,7 @@ export const useTagStore = create<TagState>()(
                 const tag = state.tags.find((t) => t.id === id);
                 if (tag) {
                     Object.assign(tag, updates);
+                    saveTagToPersistence(tag);
                 }
             });
         },
@@ -66,6 +118,12 @@ export const useTagStore = create<TagState>()(
                 state.tags = state.tags.filter((t) => t.id !== id);
                 state.relations = state.relations.filter((r) => r.tagId !== id);
             });
+            // Delete from persistence
+            (async () => {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                await p.deleteTag(id);
+            })();
         },
 
         reorderTags: (tagIds) => {
@@ -74,6 +132,7 @@ export const useTagStore = create<TagState>()(
                     const tag = state.tags.find((t) => t.id === id);
                     if (tag) {
                         tag.position = index;
+                        saveTagToPersistence(tag);
                     }
                 });
             });
@@ -94,6 +153,7 @@ export const useTagStore = create<TagState>()(
                     createdAt: Date.now(),
                 });
             });
+            // Note: Tag relations could be persisted separately if needed
         },
 
         removeTagFromEntity: (tagId, entityType, entityId) => {

@@ -71,8 +71,8 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: 'hsl(220 14% 8%)',
-                        borderBottom: '1px solid hsl(220 14% 20%)',
+                        backgroundColor: 'hsl(var(--muted))',
+                        borderBottom: '1px solid hsl(var(--border))',
                     }}
                 >
                     {shape.props.thumbnailPath ? (
@@ -118,7 +118,7 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
                         style={{
                             fontSize: '11px',
                             fontWeight: 500,
-                            color: 'var(--color-text)',
+                            color: 'hsl(var(--foreground))',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -129,7 +129,7 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
                     <span
                         style={{
                             fontSize: '10px',
-                            color: 'var(--color-text-1)',
+                            color: 'hsl(var(--muted-foreground))',
                         }}
                     >
                         Page {shape.props.pageNumber} of {shape.props.totalPages}
@@ -159,8 +159,10 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
 
     // Handle double-click to open PDF viewer
     override onDoubleClick(shape: PDFShape) {
-        // Will open PDF viewer modal
-        console.log('Open PDF viewer for:', shape.props.fileId, 'page:', shape.props.pageNumber);
+        // Import dynamically to avoid circular dependencies
+        import('@/lib/pdfEvents').then(({ openPDFViewer }) => {
+            openPDFViewer(shape.props.fileId, shape.props.filename, shape.props.pageNumber);
+        });
         return shape;
     }
 }

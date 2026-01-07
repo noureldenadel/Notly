@@ -2,6 +2,46 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Project, Board } from './types';
+import type { Project as PProject, Board as PBoard } from '@/lib/persistence/types';
+
+// Helper to save project to persistence
+async function saveProjectToPersistence(project: Project) {
+    try {
+        const { getPersistence } = await import('@/lib/persistence');
+        const p = await getPersistence();
+        await p.saveProject({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            color: project.color,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+        });
+        console.log('[ProjectStore] Saved project:', project.id);
+    } catch (e) {
+        console.error('[ProjectStore] Error saving project:', e);
+    }
+}
+
+// Helper to save board to persistence
+async function saveBoardToPersistence(board: Board) {
+    try {
+        const { getPersistence } = await import('@/lib/persistence');
+        const p = await getPersistence();
+        await p.saveBoard({
+            id: board.id,
+            projectId: board.projectId,
+            parentBoardId: board.parentBoardId,
+            title: board.title,
+            position: board.position,
+            createdAt: board.createdAt,
+            updatedAt: board.updatedAt,
+        });
+        console.log('[ProjectStore] Saved board:', board.id);
+    } catch (e) {
+        console.error('[ProjectStore] Error saving board:', e);
+    }
+}
 
 interface ProjectState {
     // Data
@@ -9,6 +49,10 @@ interface ProjectState {
     boards: Board[];
     activeProjectId: string | null;
     activeBoardId: string | null;
+    isLoaded: boolean;
+
+    // Load from persistence
+    loadProjects: () => Promise<void>;
 
     // Project actions
     createProject: (title: string, description?: string, color?: string) => Project;
@@ -36,6 +80,44 @@ export const useProjectStore = create<ProjectState>()(
         boards: [],
         activeProjectId: null,
         activeBoardId: null,
+        isLoaded: false,
+
+        // Load from persistence
+        loadProjects: async () => {
+            if (get().isLoaded) return;
+            try {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                const [projects, boards] = await Promise.all([
+                    p.getProjects(),
+                    p.getBoards(),
+                ]);
+                set((state) => {
+                    state.projects = projects.map((proj: PProject) => ({
+                        id: proj.id,
+                        title: proj.title,
+                        description: proj.description,
+                        color: proj.color,
+                        createdAt: proj.createdAt,
+                        updatedAt: proj.updatedAt,
+                    }));
+                    state.boards = boards.map((b: PBoard) => ({
+                        id: b.id,
+                        projectId: b.projectId,
+                        parentBoardId: b.parentBoardId,
+                        title: b.title,
+                        position: b.position,
+                        createdAt: b.createdAt,
+                        updatedAt: b.updatedAt,
+                    }));
+                    state.isLoaded = true;
+                });
+                console.log('[ProjectStore] Loaded', projects.length, 'projects and', boards.length, 'boards');
+            } catch (e) {
+                console.error('[ProjectStore] Error loading projects:', e);
+                set((state) => { state.isLoaded = true; });
+            }
+        },
 
         // Project actions
         createProject: (title, description, color) => {
@@ -51,6 +133,7 @@ export const useProjectStore = create<ProjectState>()(
             set((state) => {
                 state.projects.push(project);
             });
+            saveProjectToPersistence(project);
             return project;
         },
 
@@ -59,6 +142,7 @@ export const useProjectStore = create<ProjectState>()(
                 const project = state.projects.find((p) => p.id === id);
                 if (project) {
                     Object.assign(project, updates, { updatedAt: Date.now() });
+                    saveProjectToPersistence(project);
                 }
             });
         },
@@ -66,11 +150,21 @@ export const useProjectStore = create<ProjectState>()(
         deleteProject: (id) => {
             set((state) => {
                 state.projects = state.projects.filter((p) => p.id !== id);
+                const boardsToDelete = state.boards.filter((b) => b.projectId === id);
                 state.boards = state.boards.filter((b) => b.projectId !== id);
                 if (state.activeProjectId === id) {
                     state.activeProjectId = null;
                     state.activeBoardId = null;
                 }
+                // Delete from persistence
+                (async () => {
+                    const { getPersistence } = await import('@/lib/persistence');
+                    const p = await getPersistence();
+                    await p.deleteProject(id);
+                    for (const board of boardsToDelete) {
+                        await p.deleteBoard(board.id);
+                    }
+                })();
             });
         },
 
@@ -105,6 +199,7 @@ export const useProjectStore = create<ProjectState>()(
             set((state) => {
                 state.boards.push(board);
             });
+            saveBoardToPersistence(board);
             return board;
         },
 
@@ -113,6 +208,7 @@ export const useProjectStore = create<ProjectState>()(
                 const board = state.boards.find((b) => b.id === id);
                 if (board) {
                     Object.assign(board, updates, { updatedAt: Date.now() });
+                    saveBoardToPersistence(board);
                 }
             });
         },
@@ -124,6 +220,12 @@ export const useProjectStore = create<ProjectState>()(
                     state.activeBoardId = null;
                 }
             });
+            // Delete from persistence
+            (async () => {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                await p.deleteBoard(id);
+            })();
         },
 
         setActiveBoard: (id) => {
@@ -139,6 +241,7 @@ export const useProjectStore = create<ProjectState>()(
                     if (board) {
                         board.position = index;
                         board.updatedAt = Date.now();
+                        saveBoardToPersistence(board);
                     }
                 });
             });

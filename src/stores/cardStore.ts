@@ -2,12 +2,15 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Card } from './types';
+import { indexDocument, removeDocument } from '@/lib/search';
 
 interface CardState {
     // Data
     cards: Card[];
+    isLoaded: boolean;
 
     // Actions
+    loadCards: () => Promise<void>;
     createCard: (content?: string, title?: string, color?: string) => Card;
     updateCard: (id: string, updates: Partial<Omit<Card, 'id' | 'createdAt'>>) => void;
     deleteCard: (id: string) => void;
@@ -33,10 +36,87 @@ function countWords(content: string): number {
     return text.split(/\s+/).filter((word) => word.length > 0).length;
 }
 
+// Debounced save function
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+async function saveCardToPersistence(card: Card) {
+    try {
+        const { getPersistence } = await import('@/lib/persistence');
+        const p = await getPersistence();
+        await p.saveCard({
+            id: card.id,
+            title: card.title,
+            content: card.content,
+            contentType: card.contentType || 'tiptap',
+            color: card.color,
+            isHidden: card.isHidden,
+            wordCount: card.wordCount,
+            createdAt: card.createdAt,
+            updatedAt: card.updatedAt,
+        });
+        console.log('[CardStore] Saved card:', card.id);
+    } catch (e) {
+        console.error('[CardStore] Error saving card:', e);
+    }
+}
+
+function debouncedSave(card: Card) {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => saveCardToPersistence(card), 500);
+}
+
+// Immediately save card (for new cards)
+function immediatelySave(card: Card) {
+    saveCardToPersistence(card);
+}
+
+// Index card for search
+function indexCard(card: Card) {
+    indexDocument({
+        id: card.id,
+        type: 'card',
+        title: card.title || 'Untitled',
+        content: card.content,
+        tags: '',
+        preview: card.content.slice(0, 100),
+    });
+}
+
 export const useCardStore = create<CardState>()(
     immer((set, get) => ({
         // Initial state
         cards: [],
+        isLoaded: false,
+
+        // Load cards from persistence
+        loadCards: async () => {
+            try {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                const cards = await p.getCards();
+                set((state) => {
+                    state.cards = cards.map(c => ({
+                        id: c.id,
+                        title: c.title,
+                        content: c.content,
+                        contentType: (c.contentType || 'tiptap') as 'tiptap' | 'markdown' | 'html',
+                        color: c.color,
+                        isHidden: c.isHidden,
+                        wordCount: c.wordCount,
+                        createdAt: c.createdAt,
+                        updatedAt: c.updatedAt,
+                    }));
+                    state.isLoaded = true;
+                });
+                // Index all loaded cards for search
+                get().cards.forEach(indexCard);
+                console.log('[CardStore] Loaded', cards.length, 'cards');
+            } catch (e) {
+                console.error('[CardStore] Error loading cards:', e);
+                set((state) => {
+                    state.isLoaded = true;
+                });
+            }
+        },
 
         // Actions
         createCard: (content = '', title, color) => {
@@ -55,6 +135,9 @@ export const useCardStore = create<CardState>()(
             set((state) => {
                 state.cards.push(card);
             });
+            // Persist immediately and index for search
+            immediatelySave(card);
+            indexCard(card);
             return card;
         },
 
@@ -67,6 +150,9 @@ export const useCardStore = create<CardState>()(
                         updates.wordCount = countWords(updates.content);
                     }
                     Object.assign(card, updates, { updatedAt: Date.now() });
+                    // Persist and re-index
+                    debouncedSave({ ...card });
+                    indexCard({ ...card });
                 }
             });
         },
@@ -75,6 +161,13 @@ export const useCardStore = create<CardState>()(
             set((state) => {
                 state.cards = state.cards.filter((c) => c.id !== id);
             });
+            // Remove from persistence and search index
+            (async () => {
+                const { getPersistence } = await import('@/lib/persistence');
+                const p = await getPersistence();
+                await p.deleteCard(id);
+            })();
+            removeDocument(id);
         },
 
         duplicateCard: (id) => {
@@ -92,6 +185,9 @@ export const useCardStore = create<CardState>()(
             set((state) => {
                 state.cards.push(duplicate);
             });
+            // Persist and index
+            debouncedSave(duplicate);
+            indexCard(duplicate);
             return duplicate;
         },
 
@@ -103,6 +199,9 @@ export const useCardStore = create<CardState>()(
                     card.content = content;
                     card.wordCount = countWords(content);
                     card.updatedAt = Date.now();
+                    // Persist and re-index
+                    debouncedSave({ ...card });
+                    indexCard({ ...card });
                 }
             });
         },
@@ -113,6 +212,9 @@ export const useCardStore = create<CardState>()(
                 if (card) {
                     card.title = title;
                     card.updatedAt = Date.now();
+                    // Persist and re-index
+                    debouncedSave({ ...card });
+                    indexCard({ ...card });
                 }
             });
         },
@@ -123,6 +225,8 @@ export const useCardStore = create<CardState>()(
                 if (card) {
                     card.isHidden = !card.isHidden;
                     card.updatedAt = Date.now();
+                    // Persist
+                    debouncedSave({ ...card });
                 }
             });
         },

@@ -174,28 +174,61 @@
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInFromLeft {
-  from { transform: translateX(-10px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slideInFromRight {
-  from { transform: translateX(10px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
-  50% { box-shadow: 0 0 20px 5px hsl(var(--primary) / 0.2); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 20px 5px hsl(var(--primary) / 0.2);
+  }
 }
 
 .animate-fade-in {
@@ -216,4 +249,78 @@
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* TLDraw Canvas Overrides - Apply custom canvas colors */
+.tl-background {
+  background-color: hsl(var(--canvas-bg)) !important;
+}
+
+.tl-canvas {
+  background-color: hsl(var(--canvas-bg)) !important;
+}
+
+/* Override tldraw's default grid/dot pattern */
+.tl-grid {
+  --tl-grid-color: hsl(var(--canvas-dots)) !important;
+  opacity: 0.6;
+}
+
+/* Ensure tldraw uses our theme colors */
+.tl-container {
+  --color-background: hsl(var(--canvas-bg));
+  --color-text: hsl(var(--foreground));
+  --color-muted-1: hsl(var(--muted-foreground));
+}
+
+/* Additional tldraw dark mode overrides */
+[data-theme="dark"] .tl-background,
+.dark .tl-background,
+:root:not(.light) .tl-background {
+  background-color: hsl(var(--canvas-bg)) !important;
+}
+
+/* Light mode overrides */
+.light .tl-background,
+.light .tl-canvas {
+  background-color: hsl(var(--canvas-bg)) !important;
+}
+
+.light .tl-grid {
+  --tl-grid-color: hsl(var(--canvas-dots)) !important;
+}
+
+/* TLDraw shape stroke colors for theme switching */
+.tl-container {
+  /* Core text and stroke colors that follow theme */
+  --color-text: hsl(var(--foreground));
+  --color-text-0: hsl(var(--foreground));
+  --color-text-1: hsl(var(--muted-foreground));
+  --color-text-2: hsl(var(--muted-foreground) / 0.7);
+  --color-text-3: hsl(var(--muted-foreground) / 0.5);
+
+  /* Default stroke color for arrows and lines */
+  --color-default: hsl(var(--foreground));
+  --color-black: hsl(var(--foreground));
+}
+
+/* Light mode specific overrides for tldraw elements */
+.light .tl-container {
+  --color-text: hsl(var(--foreground));
+  --color-text-0: hsl(var(--foreground));
+  --color-text-1: hsl(var(--muted-foreground));
+  --color-default: hsl(var(--foreground));
+  --color-black: hsl(var(--foreground));
+}
+
+/* Ensure SVG strokes follow theme */
+.light .tl-shape path[stroke],
+.light .tl-shape line[stroke] {
+  stroke: hsl(var(--foreground));
+}
+
+/* Arrow marker colors in light mode */
+.light .tl-arrow-marker {
+  fill: hsl(var(--foreground));
+  stroke: hsl(var(--foreground));
 }
