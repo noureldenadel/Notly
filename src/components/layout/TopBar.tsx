@@ -35,6 +35,7 @@ interface TopBarProps {
   boards: { id: string; name: string }[];
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
+  onAddBoard?: () => void;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
   onImportExportClick?: () => void;
@@ -49,6 +50,7 @@ export const TopBar = ({
   boards,
   activeBoard,
   onBoardChange,
+  onAddBoard,
   onSettingsClick,
   onSearchClick,
   onImportExportClick,
@@ -86,7 +88,10 @@ export const TopBar = ({
                 {board.name}
               </TabsTrigger>
             ))}
-            <button className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={onAddBoard}
+              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+            >
               <Plus className="w-3.5 h-3.5" />
             </button>
           </TabsList>

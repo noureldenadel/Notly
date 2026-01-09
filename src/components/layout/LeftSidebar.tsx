@@ -13,13 +13,19 @@ import {
   Tag,
   Home,
   Settings,
-  MoreHorizontal
+  MoreHorizontal,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DraggableLibraryItem, DraggableItem, SortableItem, SortableList, arrayMove } from "@/components/dnd";
+import { useFavoritesStore, useFavorites, useRecents } from "@/stores/favoritesStore";
+import { useCardStore } from "@/stores/cardStore";
+import { useTagStore } from "@/stores/tagStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useToast } from "@/hooks/use-toast";
 
 interface SidebarSectionProps {
   title: string;
@@ -87,19 +93,29 @@ const SidebarItem = ({ icon, label, isActive, onClick, badge, color }: SidebarIt
 );
 
 interface ProjectItemProps {
+  id: string;
   name: string;
   color: string;
   isActive?: boolean;
   boards?: { id: string; name: string }[];
+  onProjectClick?: (projectId: string) => void;
+  onBoardClick?: (boardId: string) => void;
 }
 
-const ProjectItem = ({ name, color, isActive, boards = [] }: ProjectItemProps) => {
+const ProjectItem = ({ id, name, color, isActive, boards = [], onProjectClick, onBoardClick }: ProjectItemProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleProjectClick = () => {
+    if (boards.length > 0) {
+      setIsExpanded(!isExpanded);
+    }
+    onProjectClick?.(id);
+  };
 
   return (
     <div>
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleProjectClick}
         className={cn(
           "flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-md transition-all group",
           isActive
@@ -112,7 +128,10 @@ const ProjectItem = ({ name, color, isActive, boards = [] }: ProjectItemProps) =
         ) : (
           <div className="w-3" />
         )}
-        <div className={cn("w-2.5 h-2.5 rounded-sm flex-shrink-0", color)} />
+        <div
+          className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+          style={{ backgroundColor: color.startsWith('bg-') ? undefined : color }}
+        />
         <span className="truncate flex-1 text-left">{name}</span>
         <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100">
           {boards.length}
@@ -123,6 +142,7 @@ const ProjectItem = ({ name, color, isActive, boards = [] }: ProjectItemProps) =
           {boards.map((board) => (
             <button
               key={board.id}
+              onClick={() => onBoardClick?.(board.id)}
               className="flex items-center gap-2 w-full px-3 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-md transition-colors"
             >
               <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
@@ -142,50 +162,56 @@ interface LeftSidebarProps {
 
 export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
   const [activeTab, setActiveTab] = useState("cards");
+  const { toast } = useToast();
 
-  // State for sortable favorites
-  const [favoriteItems, setFavoriteItems] = useState([
-    { id: "fav-1", name: "Design System" },
-    { id: "fav-2", name: "Weekly Planning" },
-  ]);
+  // Real store data
+  const favorites = useFavorites();
+  const recents = useRecents();
+  const { removeFavorite, reorderFavorites } = useFavoritesStore();
+  const { cards, createCard } = useCardStore();
+  const { tags } = useTagStore();
 
-  const projects = [
-    {
-      id: "1",
-      name: "Research Notes",
-      color: "bg-highlight-blue",
-      boards: [
-        { id: "1a", name: "Literature Review" },
-        { id: "1b", name: "Key Findings" },
-      ]
-    },
-    {
-      id: "2",
-      name: "Product Design",
-      color: "bg-highlight-purple",
-      boards: [
-        { id: "2a", name: "User Flows" },
-      ]
-    },
-    {
-      id: "3",
-      name: "Learning",
-      color: "bg-highlight-green",
-      boards: []
-    },
-  ];
+  // Project store
+  const {
+    projects: storeProjects,
+    createProject,
+    setActiveProject,
+    createBoard,
+    setActiveBoard,
+    getBoardsByProject
+  } = useProjectStore();
 
-  const recents = [
-    { id: "1", name: "API Architecture", type: "card" },
-    { id: "2", name: "Wireframes.pdf", type: "file" },
-    { id: "3", name: "Meeting Notes", type: "card" },
-  ];
+  // Get cards as array for library
+  const cardsList = Object.values(cards).slice(0, 10);
 
-  const tags = [
-    { id: "1", name: "Important", color: "bg-highlight-yellow" },
-    { id: "2", name: "Review", color: "bg-highlight-blue" },
-    { id: "3", name: "Ideas", color: "bg-highlight-green" },
-  ];
+  // Handle New Card with toast
+  const handleNewCard = () => {
+    const card = createCard('', 'New Card', 'highlight-blue');
+    toast({
+      title: "Card Created",
+      description: `"${card.title}" has been created`,
+    });
+  };
+
+  // Handle New Project with toast
+  const handleNewProject = () => {
+    const project = createProject('New Project', '', '#3b82f6');
+    const board = createBoard(project.id, 'Main Board');
+    setActiveProject(project.id);
+    setActiveBoard(board.id);
+    toast({
+      title: "Project Created",
+      description: `"${project.title}" has been created with a main board`,
+    });
+  };
+
+  // Build projects list from store with their boards
+  const projects = storeProjects.map(p => ({
+    id: p.id,
+    name: p.title,
+    color: p.color ? `bg-[${p.color}]` : 'bg-highlight-blue',
+    boards: getBoardsByProject(p.id).map(b => ({ id: b.id, name: b.title }))
+  }));
 
   if (isCollapsed) {
     return (
@@ -243,11 +269,11 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
       {/* Quick Actions */}
       <div className="p-2 border-b border-sidebar-border">
         <div className="flex gap-1">
-          <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-primary">
+          <Button onClick={handleNewCard} variant="ghost" size="sm" className="flex-1 h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-primary">
             <Plus className="w-3.5 h-3.5" />
             New Card
           </Button>
-          <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-primary">
+          <Button onClick={handleNewProject} variant="ghost" size="sm" className="flex-1 h-8 text-xs justify-start gap-2 text-muted-foreground hover:text-primary">
             <FolderOpen className="w-3.5 h-3.5" />
             New Project
           </Button>
@@ -256,30 +282,32 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto py-2">
-        {/* Favorites - Sortable */}
+        {/* Favorites - from store */}
         <SidebarSection
           title="Favorites"
           icon={<Star className="w-3 h-3" />}
           actions={<Plus className="w-3 h-3" />}
         >
-          <SortableList
-            items={favoriteItems.map(f => f.id)}
-            onReorder={(ids) => {
-              const reordered = ids.map(id => favoriteItems.find(f => f.id === id)!);
-              setFavoriteItems(reordered);
-            }}
-          >
+          {favorites.length > 0 ? (
             <div className="space-y-0.5 px-1">
-              {favoriteItems.map((item) => (
-                <SortableItem key={item.id} id={item.id}>
+              {favorites.map((fav) => (
+                <div key={fav.id} className="group relative">
                   <SidebarItem
                     icon={<FileText className="w-4 h-4" />}
-                    label={item.name}
+                    label={fav.title || fav.id}
                   />
-                </SortableItem>
+                  <button
+                    onClick={() => removeFavorite(fav.id)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded"
+                  >
+                    <X className="w-3 h-3 text-destructive" />
+                  </button>
+                </div>
               ))}
             </div>
-          </SortableList>
+          ) : (
+            <p className="text-xs text-muted-foreground px-3 py-2">No favorites yet</p>
+          )}
         </SidebarSection>
 
         {/* Recents */}
@@ -292,7 +320,7 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
               <SidebarItem
                 key={item.id}
                 icon={item.type === "card" ? <FileText className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                label={item.name}
+                label={item.title}
               />
             ))}
           </div>
@@ -302,17 +330,30 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
         <SidebarSection
           title="Projects"
           icon={<FolderOpen className="w-3 h-3" />}
-          actions={<Plus className="w-3 h-3" />}
+          actions={<Plus className="w-3 h-3" onClick={handleNewProject} />}
         >
           <div className="space-y-0.5 px-1">
-            {projects.map((project) => (
+            {projects.length > 0 ? projects.map((project) => (
               <ProjectItem
                 key={project.id}
+                id={project.id}
                 name={project.name}
                 color={project.color}
                 boards={project.boards}
+                onProjectClick={(projectId) => {
+                  setActiveProject(projectId);
+                  const projectBoards = getBoardsByProject(projectId);
+                  if (projectBoards.length > 0) {
+                    setActiveBoard(projectBoards[0].id);
+                  }
+                }}
+                onBoardClick={(boardId) => {
+                  setActiveBoard(boardId);
+                }}
               />
-            ))}
+            )) : (
+              <p className="text-xs text-muted-foreground px-2 py-2">No projects yet. Click "New Project" to start.</p>
+            )}
           </div>
         </SidebarSection>
 
@@ -341,25 +382,23 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
                   Drag cards to canvas
                 </div>
                 <div className="space-y-1">
-                  {[
-                    { id: 'card-1', title: 'Research Summary', color: 'highlight-blue' },
-                    { id: 'card-2', title: 'Key Insights', color: 'highlight-purple' },
-                    { id: 'card-3', title: 'Action Items', color: 'highlight-green' },
-                  ].map((card) => (
+                  {cardsList.length > 0 ? cardsList.map((card) => (
                     <DraggableLibraryItem
                       key={card.id}
                       item={{
                         id: card.id,
                         type: 'card',
-                        data: { title: card.title, content: '', color: card.color },
+                        data: { title: card.title, content: card.content, color: card.color },
                       }}
                     >
                       <div className="p-2 bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20">
-                        <p className="text-xs font-medium truncate">{card.title}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">3 min ago</p>
+                        <p className="text-xs font-medium truncate">{card.title || 'Untitled Card'}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{card.wordCount} words</p>
                       </div>
                     </DraggableLibraryItem>
-                  ))}
+                  )) : (
+                    <p className="text-xs text-muted-foreground px-2 py-4 text-center">No cards yet</p>
+                  )}
                 </div>
               </TabsContent>
               <TabsContent value="files" className="mt-2">
@@ -402,15 +441,20 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
           defaultOpen={false}
         >
           <div className="px-2 space-y-1">
-            {tags.map((tag) => (
+            {tags.length > 0 ? tags.map((tag) => (
               <button
                 key={tag.id}
                 className="flex items-center gap-2 w-full px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-md transition-colors"
               >
-                <div className={cn("w-2 h-2 rounded-full", tag.color)} />
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: tag.color || 'hsl(var(--muted-foreground))' }}
+                />
                 <span>{tag.name}</span>
               </button>
-            ))}
+            )) : (
+              <p className="text-xs text-muted-foreground px-2 py-2">No tags yet</p>
+            )}
           </div>
         </SidebarSection>
       </div>

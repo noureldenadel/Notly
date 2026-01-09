@@ -239,3 +239,75 @@ pub async fn ensure_directory_structure() -> Result<bool, String> {
     log::info!("Ensuring directory structure exists");
     Ok(true)
 }
+
+// FTS5 Search Result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FTSSearchResult {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub title: String,
+    pub snippet: String,
+    pub rank: f64,
+}
+
+// FTS5 Full-Text Search commands
+#[command]
+pub async fn fts_search(
+    query: String,
+    types: Vec<String>,
+    date_from: Option<i64>,
+    date_to: Option<i64>,
+    limit: Option<i32>,
+) -> Result<Vec<FTSSearchResult>, String> {
+    log::info!("FTS5 search: '{}', types: {:?}, limit: {:?}", query, types, limit);
+    
+    // In production, this would execute:
+    // SELECT entity_type, entity_id, title, snippet(search_index, 3, '<b>', '</b>', '...', 20) as snippet,
+    //        rank FROM search_index WHERE search_index MATCH ? ORDER BY rank LIMIT ?
+    
+    // For now, return empty results (frontend will use MiniSearch as fallback)
+    Ok(vec![])
+}
+
+#[command]
+pub async fn fts_index_entity(
+    entity_type: String,
+    entity_id: String,
+    title: String,
+    content: String,
+    tags: String,
+) -> Result<bool, String> {
+    log::info!("FTS5 indexing: {} {}", entity_type, entity_id);
+    
+    // In production, this would execute:
+    // INSERT OR REPLACE INTO search_index (entity_type, entity_id, title, content, tags)
+    // VALUES (?, ?, ?, ?, ?)
+    
+    Ok(true)
+}
+
+#[command]
+pub async fn fts_remove_entity(
+    entity_type: String,
+    entity_id: String,
+) -> Result<bool, String> {
+    log::info!("FTS5 removing: {} {}", entity_type, entity_id);
+    
+    // In production, this would execute:
+    // DELETE FROM search_index WHERE entity_type = ? AND entity_id = ?
+    
+    Ok(true)
+}
+
+#[command]
+pub async fn fts_rebuild_index() -> Result<bool, String> {
+    log::info!("FTS5 rebuilding entire index");
+    
+    // In production, this would:
+    // 1. DELETE FROM search_index
+    // 2. INSERT INTO search_index SELECT ... FROM cards
+    // 3. INSERT INTO search_index SELECT ... FROM journal_entries
+    // 4. etc.
+    
+    Ok(true)
+}

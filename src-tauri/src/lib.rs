@@ -25,6 +25,11 @@ pub fn run() {
             commands::database::search_content,
             commands::database::get_app_data_dir,
             commands::database::ensure_directory_structure,
+            // FTS5 commands
+            commands::database::fts_search,
+            commands::database::fts_index_entity,
+            commands::database::fts_remove_entity,
+            commands::database::fts_rebuild_index,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

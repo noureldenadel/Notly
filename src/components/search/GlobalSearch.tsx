@@ -33,7 +33,7 @@ export const GlobalSearch = ({ isOpen, onClose, onResultClick }: GlobalSearchPro
     const [localQuery, setLocalQuery] = useState('');
     const [results, setResults] = useState<SearchResultItem[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const { recentSearches, addRecentSearch, filters, toggleTypeFilter } = useSearchStore();
+    const { recentSearches, addRecentSearch, filters, toggleTypeFilter, setFilters } = useSearchStore();
 
     // Focus input when opened
     useEffect(() => {
@@ -132,7 +132,8 @@ export const GlobalSearch = ({ isOpen, onClose, onResultClick }: GlobalSearchPro
                 </div>
 
                 {/* Filter chips */}
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-wrap">
+                    {/* Type filters */}
                     {typeOrder.map(type => (
                         <button
                             key={type}
@@ -148,6 +149,38 @@ export const GlobalSearch = ({ isOpen, onClose, onResultClick }: GlobalSearchPro
                             {typeLabels[type]}
                         </button>
                     ))}
+
+                    {/* Separator */}
+                    <div className="w-px h-4 bg-border mx-1" />
+
+                    {/* Date filter */}
+                    <select
+                        value={filters.dateFrom ? 'custom' : 'all'}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'all') {
+                                setFilters({ dateFrom: undefined, dateTo: undefined });
+                            } else if (value === 'today') {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                setFilters({ dateFrom: today.getTime(), dateTo: Date.now() });
+                            } else if (value === 'week') {
+                                const week = new Date();
+                                week.setDate(week.getDate() - 7);
+                                setFilters({ dateFrom: week.getTime(), dateTo: Date.now() });
+                            } else if (value === 'month') {
+                                const month = new Date();
+                                month.setMonth(month.getMonth() - 1);
+                                setFilters({ dateFrom: month.getTime(), dateTo: Date.now() });
+                            }
+                        }}
+                        className="px-2 py-1 text-xs rounded-md bg-muted/50 text-muted-foreground border-none outline-none cursor-pointer hover:bg-muted"
+                    >
+                        <option value="all">Any time</option>
+                        <option value="today">Today</option>
+                        <option value="week">Past week</option>
+                        <option value="month">Past month</option>
+                    </select>
                 </div>
 
                 {/* Results */}

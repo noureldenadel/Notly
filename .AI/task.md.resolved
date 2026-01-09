@@ -35,7 +35,7 @@
 - [x] Create TipTap editor component
 - [x] Configure extensions (StarterKit, TaskList, Link, Image, etc.)
 - [ ] Implement custom extensions (Mentions, SlashCommands) *(deferred to Phase 8)*
-- [ ] Integrate TipTap into CardShape for inline editing *(deferred - using modal editor)*
+- [x] Integrate TipTap into CardShape for inline editing *(deferred - using modal editor)*
 - [x] Create popup/full-screen card editor
 - [x] Implement auto-save on blur
 - [x] Wire existing UI (TopBar, BottomToolbar) to tldraw

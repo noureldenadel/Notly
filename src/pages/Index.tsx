@@ -12,8 +12,10 @@ import { SettingsModal } from "@/components/settings";
 import { ImportExportModal, ShortcutsCheatsheet } from "@/components/modals";
 import { PresentationMode } from "@/components/presentation";
 import { PDFViewerModal } from "@/components/pdf";
+import { CardEditorModal } from "@/components/editor";
 import { GlobalSearch } from "@/components/search";
 import { setOpenPDFHandler } from "@/lib/pdfEvents";
+import { setOpenCardEditorHandler } from "@/lib/cardEvents";
 import { initPersistence } from "@/lib/persistence";
 
 // Inner component that has access to editor context
@@ -27,7 +29,18 @@ function IndexContent() {
     setActiveTool,
   } = useUIStore();
 
-  const { activeBoardId, activeProjectId, getBoardsByProject, loadProjects, isLoaded: projectsLoaded } = useProjectStore();
+  const {
+    activeBoardId,
+    activeProjectId,
+    getBoardsByProject,
+    loadProjects,
+    isLoaded: projectsLoaded,
+    setActiveBoard,
+    createBoard,
+    createProject,
+    setActiveProject,
+    getProject,
+  } = useProjectStore();
   const { createCard, loadCards, isLoaded: cardsLoaded } = useCardStore();
   const { loadFiles, isLoaded: filesLoaded } = useFileStore();
   const { loadTags, isLoaded: tagsLoaded } = useTagStore();
@@ -41,6 +54,11 @@ function IndexContent() {
   const [activePdfUrl, setActivePdfUrl] = useState<string | undefined>(undefined);
   const [activePdfName, setActivePdfName] = useState<string | undefined>(undefined);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Card editor state
+  const [cardEditorOpen, setCardEditorOpen] = useState(false);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
 
   const { isPresenting } = usePresentationStore();
 
@@ -73,6 +91,20 @@ function IndexContent() {
 
     return () => {
       setOpenPDFHandler(null);
+    };
+  }, []);
+
+  // Register Card editor handler for double-click on card shapes
+  useEffect(() => {
+    setOpenCardEditorHandler((cardId, shapeId) => {
+      console.log('[CardEvents] Opening card editor:', cardId);
+      setActiveCardId(cardId);
+      setActiveShapeId(shapeId);
+      setCardEditorOpen(true);
+    });
+
+    return () => {
+      setOpenCardEditorHandler(null);
     };
   }, []);
 
@@ -187,12 +219,21 @@ function IndexContent() {
         <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
           {/* Top Bar - connected to tldraw */}
           <TopBar
-            projectName="Research Notes"
+            projectName={activeProjectId ? (getProject(activeProjectId)?.title || 'Untitled Project') : 'No Project'}
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => {
-              // TODO: Connect to projectStore.setActiveBoard
-              console.log('Board changed:', boardId);
+              console.log('[Board] Switching to:', boardId);
+              setActiveBoard(boardId);
+            }}
+            onAddBoard={() => {
+              if (activeProjectId) {
+                const board = createBoard(activeProjectId, 'New Board');
+                setActiveBoard(board.id);
+                console.log('[Board] Created new board:', board.title);
+              } else {
+                console.warn('[Board] No active project to add board to');
+              }
             }}
             onSettingsClick={() => setSettingsOpen(true)}
             onSearchClick={() => setSearchOpen(true)}
@@ -269,6 +310,34 @@ function IndexContent() {
         onResultClick={(result) => {
           console.log('[Search] Navigate to:', result.type, result.id);
           // TODO: Navigate to result based on type
+        }}
+      />
+
+      {/* Card Editor Modal */}
+      <CardEditorModal
+        cardId={activeCardId}
+        isOpen={cardEditorOpen}
+        onClose={() => {
+          setCardEditorOpen(false);
+          setActiveCardId(null);
+          setActiveShapeId(null);
+        }}
+        onSave={(cardId) => {
+          // Sync shape with card store data
+          if (editor && activeShapeId) {
+            const card = useCardStore.getState().getCard(cardId);
+            if (card) {
+              editor.updateShape({
+                id: activeShapeId as any,
+                type: 'card',
+                props: {
+                  title: card.title,
+                  content: card.content,
+                  color: card.color,
+                },
+              });
+            }
+          }
         }}
       />
     </>

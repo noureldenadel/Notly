@@ -6,6 +6,7 @@ import {
     TLResizeInfo,
     resizeBox,
 } from 'tldraw';
+import { openCardEditor } from '@/lib/cardEvents';
 
 // Define the card shape type
 export type CardShape = TLBaseShape<
@@ -58,7 +59,22 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
         };
 
         const hslColor = colorMap[shape.props.color] || '210 90% 65%';
-        const isEditing = shape.props.isEditing;
+
+        // Strip HTML tags for preview
+        const textContent = shape.props.content
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const wordCount = textContent.split(/\s+/).filter(Boolean).length;
+
+        // Handler for double-click to open editor
+        const handleDoubleClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log('[CardShape] Double-click handler triggered, cardId:', shape.props.cardId);
+            openCardEditor(shape.props.cardId || '', shape.id);
+        };
 
         return (
             <HTMLContainer
@@ -74,7 +90,9 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                     flexDirection: 'column',
                     overflow: 'hidden',
                     pointerEvents: 'all',
+                    cursor: 'pointer',
                 }}
+                onDoubleClick={handleDoubleClick}
             >
                 {/* Card Header */}
                 <div
@@ -83,6 +101,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                         alignItems: 'flex-start',
                         gap: '8px',
                         marginBottom: '8px',
+                        pointerEvents: 'none',
                     }}
                 >
                     <svg
@@ -114,7 +133,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                     </h3>
                 </div>
 
-                {/* Card Content */}
+                {/* Card Content Preview */}
                 <p
                     style={{
                         fontSize: '12px',
@@ -127,9 +146,10 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                         WebkitLineClamp: 3,
                         WebkitBoxOrient: 'vertical',
                         flex: 1,
+                        pointerEvents: 'none',
                     }}
                 >
-                    {shape.props.content || 'Click to edit...'}
+                    {textContent || 'Double-click to edit...'}
                 </p>
 
                 {/* Card Footer */}
@@ -140,6 +160,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                         gap: '8px',
                         marginTop: 'auto',
                         paddingTop: '12px',
+                        pointerEvents: 'none',
                     }}
                 >
                     <span
@@ -151,7 +172,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                             color: 'hsl(var(--muted-foreground))',
                         }}
                     >
-                        {shape.props.content.split(/\s+/).filter(Boolean).length} words
+                        {wordCount} words
                     </span>
                 </div>
             </HTMLContainer>
@@ -176,17 +197,16 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
         return resizeBox(shape, info);
     }
 
-    // Handle double-click to edit
+    // Handle double-click to open editor modal
     override onDoubleClick(shape: CardShape) {
-        // Toggle editing mode - this will be connected to TipTap later
-        return {
-            id: shape.id,
-            type: 'card' as const,
-            props: {
-                ...shape.props,
-                isEditing: !shape.props.isEditing,
-            },
-        };
+        console.log('[CardShape] onDoubleClick triggered, cardId:', shape.props.cardId, 'shapeId:', shape.id);
+
+        // Open the card editor modal via event system
+        // Try to open even if cardId is empty - we'll handle it in the modal
+        openCardEditor(shape.props.cardId || '', shape.id);
+
+        // Return void to prevent default tldraw editing behavior
+        return;
     }
 
     // Can the shape be edited
