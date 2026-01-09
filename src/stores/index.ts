@@ -8,6 +8,10 @@ export { useSearchStore } from './searchStore';
 export { useUIStore } from './uiStore';
 export { useSyncStore } from './syncStore';
 export { usePDFStore } from './pdfStore';
+export { useSettingsStore, useAppearanceSettings, useBehaviorSettings, useBackupSettings } from './settingsStore';
+export { useBackupStore, formatBackupSize } from './backupStore';
+export { usePresentationStore } from './presentationStore';
+
 
 // Type exports
 export type {

@@ -1,0 +1,114 @@
+# Visual Thinking App - PRD Implementation Tasks
+
+## Phase 0: Foundation & Migration
+- [x] Migrate from npm to pnpm
+- [x] Initialize Tauri with existing Vite + React app
+- [x] Configure Tauri plugins (sql, fs-extra, dialog, shell)
+- [x] Set up Rust backend structure
+
+## Phase 1: Core Infrastructure
+- [x] Set up Zustand state management stores
+  - [x] [projectStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/projectStore.ts) - Projects & boards CRUD
+  - [x] [canvasStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/canvasStore.ts) - Canvas state wrapper
+  - [x] [cardStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/cardStore.ts) - Cards data & operations
+  - [x] [fileStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/fileStore.ts) - Files, PDFs, images
+  - [x] [tagStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/tagStore.ts) - Tags & filtering
+  - [x] [searchStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/searchStore.ts) - Search state & results
+  - [x] [uiStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/uiStore.ts) - Sidebar, modals, preferences
+  - [x] [syncStore.ts](file:///c:/Users/noure/Desktop/pixel-perfect-pages-main/src/stores/syncStore.ts) - Database sync operations
+- [x] Implement SQLite database schema
+- [x] Create Tauri IPC commands for database operations
+- [x] Set up file system structure (projects/, backups/, temp/)
+
+## Phase 2: Canvas Engine (tldraw)
+- [x] Install and configure tldraw
+- [x] Create TldrawWrapper component
+- [x] Implement custom CardShape (with TipTap integration)
+- [x] Implement custom PDFShape
+- [x] Implement custom HighlightShape
+- [x] Connect tldraw state to Zustand canvasStore
+- [x] Implement auto-save with tldraw events
+- [x] Replace current CanvasArea with tldraw canvas
+
+## Phase 3: Rich Text Editor (TipTap)
+- [x] Install TipTap and extensions
+- [x] Create TipTap editor component
+- [x] Configure extensions (StarterKit, TaskList, Link, Image, etc.)
+- [ ] Implement custom extensions (Mentions, SlashCommands) *(deferred to Phase 8)*
+- [ ] Integrate TipTap into CardShape for inline editing *(deferred - using modal editor)*
+- [x] Create popup/full-screen card editor
+- [x] Implement auto-save on blur
+- [x] Wire existing UI (TopBar, BottomToolbar) to tldraw
+- [x] Implement image insertion via file dialog
+
+## Phase 4: Drag & Drop (dnd-kit)
+- [x] Install and configure dnd-kit
+- [x] Implement library drag-to-canvas
+- [x] Implement sidebar item reordering
+- [x] Implement favorites reorganization
+- [x] Connect dnd-kit with tldraw drag system
+
+## Phase 5: PDF Support
+- [x] Install react-pdf and pdfjs-dist
+- [x] Create PDF viewer component
+- [x] Implement PDF import (copy/link modes)
+- [x] Create PDF thumbnail generation
+- [x] Implement page drag to canvas (PDFPageShape)
+- [x] Add PDF highlight/annotation system
+- [x] Store highlights in database (pdfStore)
+
+## Phase 6: Search & Indexing
+- [x] Install MiniSearch
+- [x] Create search index from database content
+- [x] Implement search-as-you-type UI
+- [ ] Add filter options (type, tags, project, date)
+- [ ] Implement SQLite FTS5 for full-text search
+
+## Phase 7: Data Persistence
+- [x] Wire up localStorage/Tauri persistence layer
+- [x] Implement project/board management persistence
+- [x] Implement card persistence
+- [x] Implement file management persistence
+- [x] Implement tags persistence
+- [ ] Implement tag relations persistence *(deferred - requires schema update)*
+- [ ] Implement links & backlinks *(deferred - requires new store)*
+- [ ] Implement favorites & recents *(deferred - requires new store)*
+- [ ] Implement version history *(deferred)*
+- [ ] Implement journal entries *(deferred - requires new store)*
+
+## Phase 8: Advanced Features
+- [/] Planning & Design
+  - [x] Review PRD requirements for Phase 8
+  - [x] Explore existing codebase structure
+  - [x] Create implementation plan
+  - [ ] User approval of plan
+- [ ] **Settings UI & Store** (foundation)
+  - [ ] Create `settingsStore.ts`
+  - [ ] Create `SettingsModal.tsx` with tabs
+  - [ ] Wire to TopBar Settings button
+- [ ] **Keyboard Shortcuts**
+  - [ ] Create `useKeyboardShortcuts.ts` hook
+  - [ ] Create `ShortcutsCheatsheet.tsx` modal
+  - [ ] Add shortcuts to App.tsx
+- [ ] **Automatic Backups**
+  - [ ] Create `backupStore.ts`
+  - [ ] Create `backup.ts` utilities
+  - [ ] Add Backups tab to Settings
+- [ ] **Import/Export**
+  - [ ] Create `importExport.ts` utilities
+  - [ ] Create `ImportExportModal.tsx`
+  - [ ] Wire to TopBar menu items
+- [ ] **Presentation Mode**
+  - [ ] Create `presentationStore.ts`
+  - [ ] Create `PresentationMode.tsx` component
+  - [ ] Add presentation button to TopBar
+- [ ] **Mind Map Shape**
+  - [ ] Create `MindMapShape.tsx` custom tldraw shape
+  - [ ] Add to TldrawWrapper
+  - [ ] Add to toolbar
+
+## Phase 9: Polish & Optimization
+- [ ] Performance optimization for large canvases
+- [ ] Progressive image loading
+- [ ] Error handling & recovery
+- [ ] Cross-platform testing (Windows/macOS)

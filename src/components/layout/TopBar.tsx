@@ -10,9 +10,22 @@ import {
   Maximize2,
   Settings,
   Search,
+  PanelRight,
+  Keyboard,
+  HelpCircle,
+  Download,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useEditor } from "@/hooks/useEditorContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,9 +37,26 @@ interface TopBarProps {
   onBoardChange: (boardId: string) => void;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
+  onImportExportClick?: () => void;
+  onShortcutsClick?: () => void;
+  onPresentationClick?: () => void;
+  rightSidebarOpen?: boolean;
+  onToggleRightSidebar?: () => void;
 }
 
-export const TopBar = ({ projectName, boards, activeBoard, onBoardChange, onSettingsClick, onSearchClick }: TopBarProps) => {
+export const TopBar = ({
+  projectName,
+  boards,
+  activeBoard,
+  onBoardChange,
+  onSettingsClick,
+  onSearchClick,
+  onImportExportClick,
+  onShortcutsClick,
+  onPresentationClick,
+  rightSidebarOpen = true,
+  onToggleRightSidebar,
+}: TopBarProps) => {
   const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
 
   return (
@@ -199,21 +229,64 @@ export const TopBar = ({ projectName, boards, activeBoard, onBoardChange, onSett
           </TooltipContent>
         </Tooltip>
 
-        {/* Settings */}
+        {/* More Menu (3 dots) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-foreground">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={onSettingsClick}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onShortcutsClick}>
+              <Keyboard className="w-4 h-4 mr-2" />
+              Keyboard Shortcuts
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onImportExportClick}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Canvas
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onImportExportClick}>
+              <Upload className="w-4 h-4 mr-2" />
+              Import Files
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onPresentationClick}>
+              <FileText className="w-4 h-4 mr-2" />
+              Start Presentation
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Help & Support
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Right Sidebar Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="w-7 h-7 text-muted-foreground hover:text-foreground"
-              onClick={onSettingsClick}
+              className={cn(
+                "w-7 h-7",
+                rightSidebarOpen
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={onToggleRightSidebar}
             >
-              <Settings className="w-4 h-4" />
+              <PanelRight className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <span>Settings</span>
-            <kbd className="ml-2 text-[10px] bg-muted px-1 py-0.5 rounded">⌘,</kbd>
+            {rightSidebarOpen ? "Hide Right Sidebar" : "Show Right Sidebar"}
           </TooltipContent>
         </Tooltip>
       </div>

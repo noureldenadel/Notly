@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 import { Editor, AssetRecordType } from 'tldraw';
 import { nanoid } from 'nanoid';
 import { useCardStore } from '@/stores';
+import { createDefaultMindMap } from '@/components/canvas/shapes/MindMapShape';
 
 interface EditorContextType {
     editor: Editor | null;
@@ -27,6 +28,7 @@ interface EditorContextType {
     insertImage: () => void;
     insertPDF: () => void;
     insertCard: () => void;
+    insertMindMap: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -94,9 +96,16 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
         const tldrawTool = TOOL_MAP[toolId] || 'select';
 
-        // Handle geo shapes - just switch to geo tool
-        // tldraw will use the last selected geo shape type
+        // Handle geo shapes - need to set the specific geo shape type
         if (toolId === 'rectangle' || toolId === 'ellipse') {
+            // Access the internal styles directly via updateInstanceState
+            const currentStyles = editor.getInstanceState().stylesForNextShape;
+            editor.updateInstanceState({
+                stylesForNextShape: {
+                    ...currentStyles,
+                    'tldraw:geo': toolId === 'ellipse' ? 'ellipse' : 'rectangle',
+                },
+            });
             editor.setCurrentTool('geo');
         } else {
             editor.setCurrentTool(tldrawTool);
@@ -310,6 +319,37 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         console.log('[insertCard] Card created with ID:', card.id);
     }, [editor]);
 
+    // Insert mind map at center of viewport
+    const insertMindMap = useCallback(() => {
+        console.log('[insertMindMap] Called, editor:', !!editor);
+        if (!editor) {
+            console.error('[insertMindMap] No editor available');
+            return;
+        }
+
+        // Get center of viewport for placement
+        const camera = editor.getCamera();
+        const viewportBounds = editor.getViewportScreenBounds();
+        const x = -camera.x + viewportBounds.width / 2 / camera.z - 300;
+        const y = -camera.y + viewportBounds.height / 2 / camera.z - 200;
+
+        // Create mind map shape on canvas
+        editor.createShape({
+            type: 'mindmap',
+            x,
+            y,
+            props: {
+                w: 600,
+                h: 400,
+                rootNode: createDefaultMindMap('Main Topic'),
+                layout: 'horizontal',
+                theme: 'default',
+            },
+        });
+
+        console.log('[insertMindMap] Mind map created');
+    }, [editor]);
+
     const undo = useCallback(() => {
         if (editor?.getCanUndo()) {
             editor.undo();
@@ -360,6 +400,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 insertImage,
                 insertPDF,
                 insertCard,
+                insertMindMap,
             }}
         >
             {children}

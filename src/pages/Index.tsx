@@ -6,9 +6,11 @@ import { BottomToolbar } from "@/components/layout/BottomToolbar";
 import { CanvasArea } from "@/components/canvas/CanvasArea";
 import { EditorProvider, useEditor } from "@/hooks/useEditorContext";
 import { DndProvider, DraggableItem, CanvasDropZone } from "@/components/dnd";
-import { useUIStore, useProjectStore, useCardStore, useFileStore, useTagStore } from "@/stores";
+import { useUIStore, useProjectStore, useCardStore, useFileStore, useTagStore, usePresentationStore } from "@/stores";
 import { createCardOnCanvas } from "@/components/canvas/TldrawWrapper";
 import { SettingsModal } from "@/components/settings";
+import { ImportExportModal, ShortcutsCheatsheet } from "@/components/modals";
+import { PresentationMode } from "@/components/presentation";
 import { PDFViewerModal } from "@/components/pdf";
 import { GlobalSearch } from "@/components/search";
 import { setOpenPDFHandler } from "@/lib/pdfEvents";
@@ -33,10 +35,14 @@ function IndexContent() {
 
   // Modal states
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importExportOpen, setImportExportOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [activePdfUrl, setActivePdfUrl] = useState<string | undefined>(undefined);
   const [activePdfName, setActivePdfName] = useState<string | undefined>(undefined);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const { isPresenting } = usePresentationStore();
 
   // Initialize persistence and load all data on mount
   useEffect(() => {
@@ -77,6 +83,15 @@ function IndexContent() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen(true);
+      }
+      // Cmd/Ctrl + , to open settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+      // ? to show shortcuts (only when not in input)
+      if (e.key === '?' && !(e.target as HTMLElement).matches('input, textarea, [contenteditable]')) {
+        setShortcutsOpen(true);
       }
     };
 
@@ -181,6 +196,14 @@ function IndexContent() {
             }}
             onSettingsClick={() => setSettingsOpen(true)}
             onSearchClick={() => setSearchOpen(true)}
+            onImportExportClick={() => setImportExportOpen(true)}
+            onShortcutsClick={() => setShortcutsOpen(true)}
+            onPresentationClick={() => {
+              const { startPresentation } = usePresentationStore.getState();
+              startPresentation([]);
+            }}
+            rightSidebarOpen={rightSidebarOpen}
+            onToggleRightSidebar={() => setRightSidebarOpen(!rightSidebarOpen)}
           />
 
           {/* Main Content */}
@@ -208,9 +231,24 @@ function IndexContent() {
 
       {/* Settings Modal */}
       <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
       />
+
+      {/* Import/Export Modal */}
+      <ImportExportModal
+        open={importExportOpen}
+        onOpenChange={setImportExportOpen}
+      />
+
+      {/* Shortcuts Cheatsheet */}
+      <ShortcutsCheatsheet
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+      />
+
+      {/* Presentation Mode */}
+      <PresentationMode />
 
       {/* PDF Viewer Modal */}
       <PDFViewerModal

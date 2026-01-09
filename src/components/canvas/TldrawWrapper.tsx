@@ -10,9 +10,10 @@ import { useCanvasStore, useSyncStore } from '@/stores';
 import { CardShapeUtil } from './shapes/CardShape';
 import { PDFShapeUtil } from './shapes/PDFShape';
 import { HighlightShapeUtil } from './shapes/HighlightShape';
+import { MindMapShapeUtil, createDefaultMindMap } from './shapes/MindMapShape';
 
 // Custom shape utilities
-const customShapeUtils = [CardShapeUtil, PDFShapeUtil, HighlightShapeUtil];
+const customShapeUtils = [CardShapeUtil, PDFShapeUtil, HighlightShapeUtil, MindMapShapeUtil];
 
 interface TldrawWrapperProps {
     boardId?: string;
@@ -193,6 +194,32 @@ export function createHighlightOnCanvas(
             note,
             color,
             pageNumber,
+        },
+    });
+}
+
+// Helper function to create a mind map shape programmatically
+export function createMindMapOnCanvas(
+    editor: Editor,
+    options: {
+        x?: number;
+        y?: number;
+        topic?: string;
+        layout?: 'radial' | 'horizontal' | 'vertical';
+    }
+) {
+    const { x = 100, y = 100, topic = 'Main Topic', layout = 'horizontal' } = options;
+
+    editor.createShape({
+        type: 'mindmap',
+        x,
+        y,
+        props: {
+            w: 600,
+            h: 400,
+            rootNode: createDefaultMindMap(topic),
+            layout,
+            theme: 'default',
         },
     });
 }
