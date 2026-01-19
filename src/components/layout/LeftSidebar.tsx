@@ -4,26 +4,15 @@ import {
   ChevronDown,
   Plus,
   Search,
-  Star,
-  Clock,
   FolderOpen,
-  FileText,
-  Image,
-  Highlighter,
-  Tag,
   Home,
   Settings,
   MoreHorizontal,
-  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DraggableLibraryItem, DraggableItem, SortableItem, SortableList, arrayMove } from "@/components/dnd";
-import { useFavoritesStore, useFavorites, useRecents } from "@/stores/favoritesStore";
 import { useCardStore } from "@/stores/cardStore";
-import { useTagStore } from "@/stores/tagStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -161,15 +150,10 @@ interface LeftSidebarProps {
 }
 
 export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
-  const [activeTab, setActiveTab] = useState("cards");
   const { toast } = useToast();
 
   // Real store data
-  const favorites = useFavorites();
-  const recents = useRecents();
-  const { removeFavorite, reorderFavorites } = useFavoritesStore();
-  const { cards, createCard } = useCardStore();
-  const { tags } = useTagStore();
+  const { createCard } = useCardStore();
 
   // Project store
   const {
@@ -180,9 +164,6 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
     setActiveBoard,
     getBoardsByProject
   } = useProjectStore();
-
-  // Get cards as array for library
-  const cardsList = Object.values(cards).slice(0, 10);
 
   // Handle New Card with toast
   const handleNewCard = () => {
@@ -225,9 +206,6 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
         </Button>
         <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-primary">
           <Search className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-primary">
-          <Star className="w-4 h-4" />
         </Button>
         <div className="flex-1" />
         <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-primary">
@@ -282,50 +260,6 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto py-2">
-        {/* Favorites - from store */}
-        <SidebarSection
-          title="Favorites"
-          icon={<Star className="w-3 h-3" />}
-          actions={<Plus className="w-3 h-3" />}
-        >
-          {favorites.length > 0 ? (
-            <div className="space-y-0.5 px-1">
-              {favorites.map((fav) => (
-                <div key={fav.id} className="group relative">
-                  <SidebarItem
-                    icon={<FileText className="w-4 h-4" />}
-                    label={fav.title || fav.id}
-                  />
-                  <button
-                    onClick={() => removeFavorite(fav.id)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded"
-                  >
-                    <X className="w-3 h-3 text-destructive" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground px-3 py-2">No favorites yet</p>
-          )}
-        </SidebarSection>
-
-        {/* Recents */}
-        <SidebarSection
-          title="Recents"
-          icon={<Clock className="w-3 h-3" />}
-        >
-          <div className="space-y-0.5 px-1">
-            {recents.map((item) => (
-              <SidebarItem
-                key={item.id}
-                icon={item.type === "card" ? <FileText className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                label={item.title}
-              />
-            ))}
-          </div>
-        </SidebarSection>
-
         {/* Projects */}
         <SidebarSection
           title="Projects"
@@ -357,106 +291,6 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
           </div>
         </SidebarSection>
 
-        {/* Library */}
-        <SidebarSection
-          title="Library"
-        >
-          <div className="px-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="w-full h-7 bg-sidebar-accent p-0.5">
-                <TabsTrigger value="cards" className="flex-1 h-6 text-xs data-[state=active]:bg-sidebar">
-                  <FileText className="w-3 h-3 mr-1" />
-                  Cards
-                </TabsTrigger>
-                <TabsTrigger value="files" className="flex-1 h-6 text-xs data-[state=active]:bg-sidebar">
-                  <Image className="w-3 h-3 mr-1" />
-                  Files
-                </TabsTrigger>
-                <TabsTrigger value="highlights" className="flex-1 h-6 text-xs data-[state=active]:bg-sidebar">
-                  <Highlighter className="w-3 h-3 mr-1" />
-                  Clips
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="cards" className="mt-2 space-y-1">
-                <div className="text-xs text-muted-foreground p-2 text-center">
-                  Drag cards to canvas
-                </div>
-                <div className="space-y-1">
-                  {cardsList.length > 0 ? cardsList.map((card) => (
-                    <DraggableLibraryItem
-                      key={card.id}
-                      item={{
-                        id: card.id,
-                        type: 'card',
-                        data: { title: card.title, content: card.content, color: card.color },
-                      }}
-                    >
-                      <div className="p-2 bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20">
-                        <p className="text-xs font-medium truncate">{card.title || 'Untitled Card'}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{card.wordCount} words</p>
-                      </div>
-                    </DraggableLibraryItem>
-                  )) : (
-                    <p className="text-xs text-muted-foreground px-2 py-4 text-center">No cards yet</p>
-                  )}
-                </div>
-              </TabsContent>
-              <TabsContent value="files" className="mt-2">
-                <div className="grid grid-cols-2 gap-1">
-                  {[
-                    { id: 'file-1', filename: 'Document.pdf' },
-                    { id: 'file-2', filename: 'Image.png' },
-                    { id: 'file-3', filename: 'Notes.pdf' },
-                    { id: 'file-4', filename: 'Photo.jpg' },
-                  ].map((file) => (
-                    <DraggableLibraryItem
-                      key={file.id}
-                      item={{
-                        id: file.id,
-                        type: file.filename.endsWith('.pdf') ? 'pdf' : 'file',
-                        data: { filename: file.filename },
-                      }}
-                    >
-                      <div className="aspect-square bg-sidebar-accent rounded-md cursor-grab hover:bg-primary/10 transition-colors flex items-center justify-center">
-                        <Image className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                    </DraggableLibraryItem>
-                  ))}
-                </div>
-              </TabsContent>
-              <TabsContent value="highlights" className="mt-2">
-                <div className="text-xs text-muted-foreground p-2 text-center">
-                  No highlights yet
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </SidebarSection>
-
-        {/* Tags */}
-        <SidebarSection
-          title="Tags"
-          icon={<Tag className="w-3 h-3" />}
-          actions={<Plus className="w-3 h-3" />}
-          defaultOpen={false}
-        >
-          <div className="px-2 space-y-1">
-            {tags.length > 0 ? tags.map((tag) => (
-              <button
-                key={tag.id}
-                className="flex items-center gap-2 w-full px-2 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-md transition-colors"
-              >
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: tag.color || 'hsl(var(--muted-foreground))' }}
-                />
-                <span>{tag.name}</span>
-              </button>
-            )) : (
-              <p className="text-xs text-muted-foreground px-2 py-2">No tags yet</p>
-            )}
-          </div>
-        </SidebarSection>
       </div>
 
       {/* Footer */}

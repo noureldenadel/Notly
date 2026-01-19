@@ -13,6 +13,7 @@ async function saveProjectToPersistence(project: Project) {
             id: project.id,
             title: project.title,
             description: project.description,
+            thumbnailPath: project.thumbnailPath,
             color: project.color,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
@@ -97,6 +98,7 @@ export const useProjectStore = create<ProjectState>()(
                         id: proj.id,
                         title: proj.title,
                         description: proj.description,
+                        thumbnailPath: proj.thumbnailPath,
                         color: proj.color,
                         createdAt: proj.createdAt,
                         updatedAt: proj.updatedAt,
@@ -120,13 +122,29 @@ export const useProjectStore = create<ProjectState>()(
         },
 
         // Project actions
+        // Project actions
         createProject: (title, description, color) => {
             const now = Date.now();
+
+            // Random color if not provided
+            let finalColor = color;
+            if (!finalColor) {
+                const colors = [
+                    'highlight-blue',
+                    'highlight-purple',
+                    'highlight-green',
+                    'highlight-yellow',
+                    'highlight-pink',
+                    'highlight-orange'
+                ];
+                finalColor = colors[Math.floor(Math.random() * colors.length)];
+            }
+
             const project: Project = {
                 id: nanoid(),
                 title,
                 description,
-                color,
+                color: finalColor,
                 createdAt: now,
                 updatedAt: now,
             };

@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { LeftSidebar } from "@/components/layout/LeftSidebar";
+import { useNavigate } from "react-router-dom";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomToolbar } from "@/components/layout/BottomToolbar";
@@ -17,12 +17,13 @@ import { GlobalSearch } from "@/components/search";
 import { setOpenPDFHandler } from "@/lib/pdfEvents";
 import { setOpenCardEditorHandler } from "@/lib/cardEvents";
 import { initPersistence } from "@/lib/persistence";
+import { useKeyboardShortcuts, createDefaultShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useToast } from "@/hooks/use-toast";
 
 // Inner component that has access to editor context
 function IndexContent() {
+  const navigate = useNavigate();
   const {
-    leftSidebarCollapsed,
-    setLeftSidebarCollapsed,
     rightSidebarOpen,
     setRightSidebarOpen,
     activeTool,
@@ -108,28 +109,49 @@ function IndexContent() {
     };
   }, []);
 
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K to open search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-      // Cmd/Ctrl + , to open settings
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault();
-        setSettingsOpen(true);
-      }
-      // ? to show shortcuts (only when not in input)
-      if (e.key === '?' && !(e.target as HTMLElement).matches('input, textarea, [contenteditable]')) {
-        setShortcutsOpen(true);
-      }
-    };
+  const { toast } = useToast();
+  const { startPresentation } = usePresentationStore();
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // Create card shortcut handler
+  const handleCreateCardShortcut = useCallback(() => {
+    if (!editor) return;
+
+    const viewport = editor.getViewportPageBounds();
+    const center = viewport.center;
+
+    // Create card in store
+    const card = createCard('', 'New Card', 'highlight-blue');
+
+    // Add to canvas
+    createCardOnCanvas(editor, {
+      x: center.x - 140, // Center the card
+      y: center.y - 80,
+      cardId: card.id,
+      title: 'New Card',
+      content: '',
+      color: 'highlight-blue',
+    });
+
+    // Optional: Select the new shape to allow immediate editing? 
+    // Usually handled by createCardOnCanvas returning ID or we can find it.
+  }, [editor, createCard]);
+
+  // Register global shortcuts
+  const shortcuts = createDefaultShortcuts({
+    openSearch: () => setSearchOpen(true),
+    openSettings: () => setSettingsOpen(true),
+    showShortcuts: () => setShortcutsOpen(true),
+    createCard: handleCreateCardShortcut,
+    save: () => {
+      // Manual save trigger / confidence boost for user
+      toast({ title: "Saved", description: "Changes are saved automatically" });
+    },
+    startPresentation: () => {
+      startPresentation([]);
+    },
+  });
+
+  useKeyboardShortcuts(shortcuts);
 
   // Get boards for the active project (or use demo data)
   const boards = activeProjectId
@@ -220,6 +242,7 @@ function IndexContent() {
           {/* Top Bar - connected to tldraw */}
           <TopBar
             projectName={activeProjectId ? (getProject(activeProjectId)?.title || 'Untitled Project') : 'No Project'}
+            projectColor={activeProjectId ? getProject(activeProjectId)?.color : undefined}
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => {
@@ -235,6 +258,7 @@ function IndexContent() {
                 console.warn('[Board] No active project to add board to');
               }
             }}
+            onNavigateHome={() => navigate("/")}
             onSettingsClick={() => setSettingsOpen(true)}
             onSearchClick={() => setSearchOpen(true)}
             onImportExportClick={() => setImportExportOpen(true)}
@@ -249,12 +273,6 @@ function IndexContent() {
 
           {/* Main Content */}
           <div className="flex-1 flex overflow-hidden">
-            {/* Left Sidebar */}
-            <LeftSidebar
-              isCollapsed={leftSidebarCollapsed}
-              onToggle={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-            />
-
             {/* Canvas Area with Drop Zone */}
             <CanvasDropZone className="flex-1 relative flex flex-col min-w-0">
               <CanvasArea boardId={activeBoard} />

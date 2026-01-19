@@ -1,7 +1,5 @@
 import {
-  ChevronDown,
   Plus,
-  Share,
   MoreHorizontal,
   Undo2,
   Redo2,
@@ -16,6 +14,7 @@ import {
   Download,
   Upload,
   FileText,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,13 +28,16 @@ import {
 import { cn } from "@/lib/utils";
 import { useEditor } from "@/hooks/useEditorContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getColorHex } from "@/components/projects/ProjectCard";
 
 interface TopBarProps {
   projectName: string;
+  projectColor?: string;
   boards: { id: string; name: string }[];
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
   onAddBoard?: () => void;
+  onNavigateHome?: () => void;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
   onImportExportClick?: () => void;
@@ -47,10 +49,12 @@ interface TopBarProps {
 
 export const TopBar = ({
   projectName,
+  projectColor,
   boards,
   activeBoard,
   onBoardChange,
   onAddBoard,
+  onNavigateHome,
   onSettingsClick,
   onSearchClick,
   onImportExportClick,
@@ -63,13 +67,32 @@ export const TopBar = ({
 
   return (
     <div className="h-11 bg-card border-b border-border flex items-center px-3 gap-3">
+      {/* Home Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 text-muted-foreground hover:text-foreground"
+            onClick={onNavigateHome}
+          >
+            <Home className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          All Projects
+        </TooltipContent>
+      </Tooltip>
+
       {/* Project Info */}
       <div className="flex items-center gap-2">
-        <button className="flex items-center gap-1.5 px-2 py-1 hover:bg-accent rounded-md transition-colors group">
-          <div className="w-3 h-3 rounded-sm bg-highlight-blue" />
+        <div className="flex items-center gap-1.5 px-2 py-1">
+          <div
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: getColorHex(projectColor) }}
+          />
           <span className="text-sm font-medium">{projectName}</span>
-          <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-foreground" />
-        </button>
+        </div>
       </div>
 
       {/* Board Tabs */}
@@ -199,22 +222,6 @@ export const TopBar = ({
         </div>
 
         <div className="w-px h-5 bg-border mx-1" />
-
-        {/* Collaborators */}
-        <div className="flex -space-x-1.5 mr-2">
-          <div className="w-6 h-6 rounded-full bg-highlight-blue flex items-center justify-center text-[10px] font-medium ring-2 ring-card">
-            JD
-          </div>
-          <div className="w-6 h-6 rounded-full bg-highlight-purple flex items-center justify-center text-[10px] font-medium ring-2 ring-card">
-            AK
-          </div>
-        </div>
-
-        {/* Share */}
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground">
-          <Share className="w-3.5 h-3.5" />
-          Share
-        </Button>
 
         {/* Search */}
         <Tooltip>

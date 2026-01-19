@@ -4,6 +4,7 @@
  */
 
 import { localStorageAdapter } from './localStorage';
+import { indexeddbAdapter } from './indexeddb';
 import type { PersistenceAPI } from './types';
 
 // Re-export types
@@ -32,8 +33,8 @@ export async function getPersistence(): Promise<PersistenceAPI> {
         persistenceInstance = tauriAdapter;
         console.log('[Persistence] Using Tauri SQLite adapter');
     } else {
-        persistenceInstance = localStorageAdapter;
-        console.log('[Persistence] Using localStorage adapter');
+        persistenceInstance = indexeddbAdapter;
+        console.log('[Persistence] Using IndexedDB adapter');
     }
 
     await persistenceInstance.init();
@@ -45,9 +46,9 @@ export async function getPersistence(): Promise<PersistenceAPI> {
  */
 export function persistence(): PersistenceAPI {
     if (!persistenceInstance) {
-        // Fallback to localStorage if not initialized
-        persistenceInstance = localStorageAdapter;
-        console.warn('[Persistence] Using localStorage (not initialized yet)');
+        // Fallback or lazy init
+        persistenceInstance = indexeddbAdapter;
+        console.warn('[Persistence] Using IndexedDB (not initialized yet)');
     }
     return persistenceInstance;
 }
