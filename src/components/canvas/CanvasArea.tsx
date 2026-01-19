@@ -152,6 +152,33 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
     previousBoardRef.current = currentBoardId;
   }, [currentBoardId]);
 
+  // Save snapshot and thumbnail before page unload (refresh/close)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (editorRef.current && currentBoardId) {
+        const editor = editorRef.current;
+
+        // Synchronously save snapshot
+        const snapshot = getSnapshot(editor.store);
+        saveBoardSnapshot(currentBoardId, JSON.stringify(snapshot));
+        console.log('[CanvasArea] Saved snapshot on beforeunload');
+
+        // Capture thumbnail synchronously (best effort)
+        if (activeProjectId) {
+          captureCanvasThumbnail(editor).then((thumbnail) => {
+            if (thumbnail) {
+              updateProject(activeProjectId, { thumbnailPath: thumbnail });
+              console.log('[CanvasArea] Saved thumbnail on beforeunload');
+            }
+          });
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentBoardId, activeProjectId, updateProject]);
+
   // Handle editor ready
   const handleEditorReady = useCallback((ed: Editor) => {
     editorRef.current = ed;
@@ -172,11 +199,30 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
     console.log('[CanvasArea] Editor ready for board:', currentBoardId);
   }, [setEditor, currentBoardId]);
 
+  // Debounced thumbnail capture ref
+  const thumbnailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Handle snapshot changes (for auto-save)
   const handleSnapshotChange = useCallback((snapshot: string) => {
-    // Auto-save to localStorage
+    // Auto-save snapshot to localStorage
     saveBoardSnapshot(currentBoardId, snapshot);
-  }, [currentBoardId]);
+
+    // Debounced thumbnail capture (wait 2 seconds after last change)
+    if (thumbnailTimeoutRef.current) {
+      clearTimeout(thumbnailTimeoutRef.current);
+    }
+
+    thumbnailTimeoutRef.current = setTimeout(() => {
+      if (editorRef.current && activeProjectId) {
+        captureCanvasThumbnail(editorRef.current).then((thumbnail) => {
+          if (thumbnail) {
+            updateProject(activeProjectId, { thumbnailPath: thumbnail });
+            console.log('[CanvasArea] Auto-saved thumbnail for project:', activeProjectId);
+          }
+        });
+      }
+    }, 2000); // 2 second debounce
+  }, [currentBoardId, activeProjectId, updateProject]);
 
   return (
     <div className="flex-1 relative overflow-hidden">

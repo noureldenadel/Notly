@@ -160,7 +160,9 @@ export const useProjectStore = create<ProjectState>()(
                 const project = state.projects.find((p) => p.id === id);
                 if (project) {
                     Object.assign(project, updates, { updatedAt: Date.now() });
-                    saveProjectToPersistence(project);
+                    // Clone the project to avoid Immer proxy revocation in async function
+                    const projectClone = { ...project };
+                    saveProjectToPersistence(projectClone);
                 }
             });
         },
@@ -226,7 +228,9 @@ export const useProjectStore = create<ProjectState>()(
                 const board = state.boards.find((b) => b.id === id);
                 if (board) {
                     Object.assign(board, updates, { updatedAt: Date.now() });
-                    saveBoardToPersistence(board);
+                    // Clone to avoid Immer proxy revocation
+                    const boardClone = { ...board };
+                    saveBoardToPersistence(boardClone);
                 }
             });
         },
@@ -259,7 +263,9 @@ export const useProjectStore = create<ProjectState>()(
                     if (board) {
                         board.position = index;
                         board.updatedAt = Date.now();
-                        saveBoardToPersistence(board);
+                        // Clone to avoid Immer proxy revocation
+                        const boardClone = { ...board };
+                        saveBoardToPersistence(boardClone);
                     }
                 });
             });
