@@ -7,6 +7,9 @@ import {
     resizeBox,
 } from 'tldraw';
 import { openCardEditor } from '@/lib/cardEvents';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('CardShape');
 
 // Define the card shape type
 export type CardShape = TLBaseShape<
@@ -72,7 +75,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
         const handleDoubleClick = (e: React.MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();
-            console.log('[CardShape] Double-click handler triggered, cardId:', shape.props.cardId);
+            log.debug('Double-click handler triggered, cardId:', shape.props.cardId);
             openCardEditor(shape.props.cardId || '', shape.id);
         };
 
@@ -199,7 +202,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
 
     // Handle double-click to open editor modal
     override onDoubleClick(shape: CardShape) {
-        console.log('[CardShape] onDoubleClick triggered, cardId:', shape.props.cardId, 'shapeId:', shape.id);
+        log.debug('onDoubleClick triggered, cardId:', shape.props.cardId, 'shapeId:', shape.id);
 
         // Open the card editor modal via event system
         // Try to open even if cardId is empty - we'll handle it in the modal

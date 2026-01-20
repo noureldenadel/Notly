@@ -6,6 +6,9 @@ import {
     TLResizeInfo,
     resizeBox,
 } from 'tldraw';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('HighlightShape');
 
 // Define the highlight shape type
 export type HighlightShape = TLBaseShape<
@@ -206,7 +209,7 @@ export class HighlightShapeUtil extends BaseBoxShapeUtil<HighlightShape> {
     // Handle double-click to jump to source
     override onDoubleClick(shape: HighlightShape) {
         // Navigate to source (PDF page or card)
-        console.log('Navigate to source:', shape.props.sourceType, shape.props.sourceId);
+        log.debug('Navigate to source:', shape.props.sourceType, shape.props.sourceId);
         return shape;
     }
 }

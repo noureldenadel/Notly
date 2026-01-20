@@ -3,6 +3,9 @@ import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Card } from './types';
 import { indexDocument, removeDocument } from '@/lib/search';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('CardStore');
 
 interface CardState {
     // Data
@@ -53,9 +56,9 @@ async function saveCardToPersistence(card: Card) {
             createdAt: card.createdAt,
             updatedAt: card.updatedAt,
         });
-        console.log('[CardStore] Saved card:', card.id);
+        log.debug('Saved card:', card.id);
     } catch (e) {
-        console.error('[CardStore] Error saving card:', e);
+        log.error('Error saving card:', e);
     }
 }
 
@@ -109,9 +112,9 @@ export const useCardStore = create<CardState>()(
                 });
                 // Index all loaded cards for search
                 get().cards.forEach(indexCard);
-                console.log('[CardStore] Loaded', cards.length, 'cards');
+                log.debug('Loaded', cards.length, 'cards');
             } catch (e) {
-                console.error('[CardStore] Error loading cards:', e);
+                log.error('Error loading cards:', e);
                 set((state) => {
                     state.isLoaded = true;
                 });

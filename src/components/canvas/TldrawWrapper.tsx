@@ -11,6 +11,10 @@ import { CardShapeUtil } from './shapes/CardShape';
 import { PDFShapeUtil } from './shapes/PDFShape';
 import { HighlightShapeUtil } from './shapes/HighlightShape';
 import { MindMapShapeUtil, createDefaultMindMap } from './shapes/MindMapShape';
+import { createLogger } from '@/lib/logger';
+import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
+
+const log = createLogger('tldraw');
 
 // Custom shape utilities
 const customShapeUtils = [CardShapeUtil, PDFShapeUtil, HighlightShapeUtil, MindMapShapeUtil];
@@ -79,7 +83,7 @@ export function TldrawWrapper({
             // Notify parent component
             onEditorReady?.(editor);
 
-            console.log('[tldraw] Editor mounted for board:', boardId);
+            log.debug('Editor mounted for board:', boardId);
         },
         [boardId, initialSnapshot, onEditorReady, onSnapshotChange, setEditorRef, setViewport, incrementPendingChanges, recordAutoSave]
     );
@@ -114,15 +118,15 @@ export function createCardOnCanvas(
         color?: string;
     }
 ) {
-    const { x = 100, y = 100, cardId, title, content, color = 'highlight-blue' } = options;
+    const { x = 100, y = 100, cardId, title, content, color = COLORS.DEFAULT_CARD } = options;
 
     editor.createShape({
         type: 'card',
         x,
         y,
         props: {
-            w: 280,
-            h: 160,
+            w: SHAPE_DEFAULTS.CARD.WIDTH,
+            h: SHAPE_DEFAULTS.CARD.HEIGHT,
             cardId,
             title,
             content,
@@ -152,8 +156,8 @@ export function createPDFOnCanvas(
         x,
         y,
         props: {
-            w: 200,
-            h: 260,
+            w: SHAPE_DEFAULTS.PDF.WIDTH,
+            h: SHAPE_DEFAULTS.PDF.HEIGHT,
             fileId,
             filename,
             pageNumber,
@@ -178,15 +182,15 @@ export function createHighlightOnCanvas(
         pageNumber?: number;
     }
 ) {
-    const { x = 100, y = 100, highlightId, sourceType, sourceId, content, note, color = 'highlight-yellow', pageNumber } = options;
+    const { x = 100, y = 100, highlightId, sourceType, sourceId, content, note, color = COLORS.DEFAULT_HIGHLIGHT, pageNumber } = options;
 
     editor.createShape({
         type: 'highlight',
         x,
         y,
         props: {
-            w: 260,
-            h: 120,
+            w: SHAPE_DEFAULTS.HIGHLIGHT.WIDTH,
+            h: SHAPE_DEFAULTS.HIGHLIGHT.HEIGHT,
             highlightId,
             sourceType,
             sourceId,
@@ -215,8 +219,8 @@ export function createMindMapOnCanvas(
         x,
         y,
         props: {
-            w: 600,
-            h: 400,
+            w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
+            h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
             rootNode: createDefaultMindMap(topic),
             layout,
             theme: 'default',

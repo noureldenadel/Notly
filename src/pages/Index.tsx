@@ -19,6 +19,9 @@ import { setOpenCardEditorHandler } from "@/lib/cardEvents";
 import { initPersistence } from "@/lib/persistence";
 import { useKeyboardShortcuts, createDefaultShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useToast } from "@/hooks/use-toast";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('Index');
 
 // Inner component that has access to editor context
 function IndexContent() {
@@ -76,7 +79,7 @@ function IndexContent() {
         !tagsLoaded && loadTags(),
       ]);
 
-      console.log('[App] All data loaded');
+      log.debug('All data loaded');
     }
     initApp();
   }, [loadProjects, loadCards, loadFiles, loadTags, projectsLoaded, cardsLoaded, filesLoaded, tagsLoaded]);
@@ -84,7 +87,7 @@ function IndexContent() {
   // Register PDF open handler for double-click on PDF shapes
   useEffect(() => {
     setOpenPDFHandler((pdfUrl, fileName, _pageNumber) => {
-      console.log('[PDFEvents] Opening PDF viewer:', fileName);
+      log.debug('Opening PDF viewer:', fileName);
       setActivePdfUrl(pdfUrl);
       setActivePdfName(fileName);
       setPdfViewerOpen(true);
@@ -98,7 +101,7 @@ function IndexContent() {
   // Register Card editor handler for double-click on card shapes
   useEffect(() => {
     setOpenCardEditorHandler((cardId, shapeId) => {
-      console.log('[CardEvents] Opening card editor:', cardId);
+      log.debug('Opening card editor:', cardId);
       setActiveCardId(cardId);
       setActiveShapeId(shapeId);
       setCardEditorOpen(true);
@@ -167,11 +170,11 @@ function IndexContent() {
   // Handle drop on canvas from library
   const handleDropOnCanvas = useCallback((item: DraggableItem, position: { x: number; y: number }) => {
     if (!editor) {
-      console.warn('[DnD] No editor available for drop');
+      log.warn('No editor available for drop');
       return;
     }
 
-    console.log('[DnD] Dropped item:', item.type, 'at', position);
+    log.debug('Dropped item:', item.type, 'at', position);
 
     // Convert screen position to canvas coordinates
     const screenPoint = { x: position.x, y: position.y };
@@ -231,7 +234,7 @@ function IndexContent() {
       }
 
       default:
-        console.warn('[DnD] Unknown item type:', item.type);
+        log.warn('Unknown item type:', item.type);
     }
   }, [editor, createCard]);
 
@@ -246,16 +249,16 @@ function IndexContent() {
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => {
-              console.log('[Board] Switching to:', boardId);
+              log.debug('Switching to board:', boardId);
               setActiveBoard(boardId);
             }}
             onAddBoard={() => {
               if (activeProjectId) {
                 const board = createBoard(activeProjectId, 'New Board');
                 setActiveBoard(board.id);
-                console.log('[Board] Created new board:', board.title);
+                log.debug('Created new board:', board.title);
               } else {
-                console.warn('[Board] No active project to add board to');
+                log.warn('No active project to add board to');
               }
             }}
             onNavigateHome={() => navigate("/")}
@@ -326,7 +329,7 @@ function IndexContent() {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         onResultClick={(result) => {
-          console.log('[Search] Navigate to:', result.type, result.id);
+          log.debug('Navigate to:', result.type, result.id);
           // TODO: Navigate to result based on type
         }}
       />

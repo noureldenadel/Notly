@@ -3,6 +3,9 @@ import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Project, Board } from './types';
 import type { Project as PProject, Board as PBoard } from '@/lib/persistence/types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProjectStore');
 
 // Helper to save project to persistence
 async function saveProjectToPersistence(project: Project) {
@@ -18,9 +21,9 @@ async function saveProjectToPersistence(project: Project) {
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
         });
-        console.log('[ProjectStore] Saved project:', project.id);
+        log.debug('Saved project:', project.id);
     } catch (e) {
-        console.error('[ProjectStore] Error saving project:', e);
+        log.error('Error saving project:', e);
     }
 }
 
@@ -38,9 +41,9 @@ async function saveBoardToPersistence(board: Board) {
             createdAt: board.createdAt,
             updatedAt: board.updatedAt,
         });
-        console.log('[ProjectStore] Saved board:', board.id);
+        log.debug('Saved board:', board.id);
     } catch (e) {
-        console.error('[ProjectStore] Error saving board:', e);
+        log.error('Error saving board:', e);
     }
 }
 
@@ -114,9 +117,9 @@ export const useProjectStore = create<ProjectState>()(
                     }));
                     state.isLoaded = true;
                 });
-                console.log('[ProjectStore] Loaded', projects.length, 'projects and', boards.length, 'boards');
+                log.debug('Loaded', projects.length, 'projects and', boards.length, 'boards');
             } catch (e) {
-                console.error('[ProjectStore] Error loading projects:', e);
+                log.error('Error loading projects:', e);
                 set((state) => { state.isLoaded = true; });
             }
         },

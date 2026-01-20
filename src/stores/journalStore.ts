@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('JournalStore');
 
 export interface JournalEntry {
     id: string;
@@ -85,7 +88,7 @@ export const useJournalStore = create<JournalState>()(
                     }
                 });
 
-                console.log('[JournalStore] Saved entry for:', date);
+                log.debug('Saved entry for:', date);
             },
 
             deleteEntry: (date) => {

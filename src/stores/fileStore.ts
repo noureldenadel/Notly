@@ -3,6 +3,9 @@ import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { FileEntry } from './types';
 import type { FileEntry as PFileEntry } from '@/lib/persistence/types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('FileStore');
 
 // Helper to save file to persistence
 async function saveFileToPersistence(file: FileEntry) {
@@ -22,9 +25,9 @@ async function saveFileToPersistence(file: FileEntry) {
             updatedAt: file.updatedAt,
             metadata: file.metadata ? JSON.stringify(file.metadata) : undefined,
         });
-        console.log('[FileStore] Saved file:', file.id);
+        log.debug('Saved file:', file.id);
     } catch (e) {
-        console.error('[FileStore] Error saving file:', e);
+        log.error('Error saving file:', e);
     }
 }
 
@@ -91,9 +94,9 @@ export const useFileStore = create<FileState>()(
                     }));
                     state.isLoaded = true;
                 });
-                console.log('[FileStore] Loaded', files.length, 'files');
+                log.debug('Loaded', files.length, 'files');
             } catch (e) {
-                console.error('[FileStore] Error loading files:', e);
+                log.error('Error loading files:', e);
                 set((state) => { state.isLoaded = true; });
             }
         },

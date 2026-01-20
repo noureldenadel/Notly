@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('LinkStore');
 
 export type LinkType = 'reference' | 'embed' | 'mention';
 
@@ -94,7 +97,7 @@ export const useLinkStore = create<LinkState>()(
                     state.links.push(link);
                 });
 
-                console.log('[LinkStore] Created link:', sourceId, '->', targetId);
+                log.debug('Created link:', sourceId, '->', targetId);
                 return link;
             },
 

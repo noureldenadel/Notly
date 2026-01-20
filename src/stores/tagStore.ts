@@ -3,6 +3,9 @@ import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
 import type { Tag, TagRelation } from './types';
 import type { Tag as PTag } from '@/lib/persistence/types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('TagStore');
 
 // Helper to save tag to persistence
 async function saveTagToPersistence(tag: Tag) {
@@ -17,9 +20,9 @@ async function saveTagToPersistence(tag: Tag) {
             position: tag.position,
             createdAt: tag.createdAt,
         });
-        console.log('[TagStore] Saved tag:', tag.id);
+        log.debug('Saved tag:', tag.id);
     } catch (e) {
-        console.error('[TagStore] Error saving tag:', e);
+        log.error('Error saving tag:', e);
     }
 }
 
@@ -77,9 +80,9 @@ export const useTagStore = create<TagState>()(
                     }));
                     state.isLoaded = true;
                 });
-                console.log('[TagStore] Loaded', tags.length, 'tags');
+                log.debug('Loaded', tags.length, 'tags');
             } catch (e) {
-                console.error('[TagStore] Error loading tags:', e);
+                log.error('Error loading tags:', e);
                 set((state) => { state.isLoaded = true; });
             }
         },

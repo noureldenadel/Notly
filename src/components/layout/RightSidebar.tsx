@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { 
-  Info, 
-  Library, 
-  Highlighter, 
-  Layers, 
+import {
+  Info,
+  Library,
   X,
   FileText,
   Calendar,
@@ -58,12 +56,6 @@ export const RightSidebar = ({ isOpen, onClose }: RightSidebarProps) => {
             </TabsTrigger>
             <TabsTrigger value="library" className="h-6 px-2.5 text-xs data-[state=active]:bg-card">
               <Library className="w-3 h-3" />
-            </TabsTrigger>
-            <TabsTrigger value="highlights" className="h-6 px-2.5 text-xs data-[state=active]:bg-card">
-              <Highlighter className="w-3 h-3" />
-            </TabsTrigger>
-            <TabsTrigger value="boards" className="h-6 px-2.5 text-xs data-[state=active]:bg-card">
-              <Layers className="w-3 h-3" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -148,54 +140,9 @@ export const RightSidebar = ({ isOpen, onClose }: RightSidebarProps) => {
             </div>
           </TabsContent>
 
-          <TabsContent value="highlights" className="mt-0">
-            <h3 className="text-sm font-semibold mb-3">Highlights</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Annotations from PDFs and cards.
-            </p>
-            <div className="space-y-2">
-              {[
-                { text: "The key insight from this research...", color: "bg-highlight-yellow", source: "Paper.pdf" },
-                { text: "Important note about the methodology...", color: "bg-highlight-blue", source: "Notes" },
-              ].map((highlight, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "p-2 rounded-md border-l-2 cursor-pointer hover:bg-accent/30 transition-colors",
-                    highlight.color.replace("bg-", "border-l-")
-                  )}
-                  style={{ borderLeftColor: `var(--${highlight.color.replace("bg-", "")})` }}
-                >
-                  <p className="text-xs line-clamp-2">{highlight.text}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{highlight.source}</p>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="boards" className="mt-0">
-            <h3 className="text-sm font-semibold mb-3">Boards</h3>
-            <div className="space-y-1">
-              {[
-                { name: "Main Canvas", active: true },
-                { name: "Literature Review", active: false },
-                { name: "Key Findings", active: false },
-              ].map((board) => (
-                <button
-                  key={board.name}
-                  className={cn(
-                    "flex items-center gap-2 w-full p-2 rounded-md transition-colors text-left",
-                    board.active 
-                      ? "bg-primary/10 text-primary" 
-                      : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span className="text-sm">{board.name}</span>
-                </button>
-              ))}
-            </div>
-          </TabsContent>
+
+
         </Tabs>
       </div>
     </div>

@@ -3,6 +3,11 @@ import { Editor, AssetRecordType } from 'tldraw';
 import { nanoid } from 'nanoid';
 import { useCardStore } from '@/stores';
 import { createDefaultMindMap } from '@/components/canvas/shapes/MindMapShape';
+import { createLogger } from '@/lib/logger';
+import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
+import { getViewportCenter } from '@/lib/canvasUtils';
+
+const log = createLogger('EditorContext');
 
 interface EditorContextType {
     editor: Editor | null;
@@ -114,7 +119,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
     // Insert image via file dialog
     const insertImage = useCallback(() => {
-        console.log('[insertImage] Called, editor:', !!editor);
+        log.debug('insertImage called, editor:', !!editor);
 
         // Create file input element
         const input = document.createElement('input');
@@ -123,11 +128,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         input.multiple = true;
 
         input.onchange = async (e) => {
-            console.log('[insertImage] File selected');
+            log.debug('File selected');
             const files = (e.target as HTMLInputElement).files;
             if (!files || files.length === 0) return;
             if (!editor) {
-                console.error('[insertImage] No editor available');
+                log.error('No editor available');
                 return;
             }
 
@@ -163,16 +168,13 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                         // Add asset to store
                         editor.createAssets([asset]);
 
-                        // Calculate scaled dimensions (max 600px width/height)
-                        const scaledWidth = Math.min(img.width, 600);
+                        // Calculate scaled dimensions
+                        const scaledWidth = Math.min(img.width, SHAPE_DEFAULTS.IMAGE.MAX_WIDTH);
                         const aspectRatio = img.height / img.width;
                         const scaledHeight = scaledWidth * aspectRatio;
 
-                        // Get center of viewport for placement - use SCALED dimensions
-                        const camera = editor.getCamera();
-                        const viewportBounds = editor.getViewportScreenBounds();
-                        const x = -camera.x + viewportBounds.width / 2 / camera.z - scaledWidth / 2;
-                        const y = -camera.y + viewportBounds.height / 2 / camera.z - scaledHeight / 2;
+                        // Get center of viewport for placement
+                        const { x, y } = getViewportCenter(editor, scaledWidth, scaledHeight);
 
                         // Create image shape at center of viewport
                         editor.createShape({
@@ -188,7 +190,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     };
                     reader.readAsDataURL(file);
                 } catch (error) {
-                    console.error('Failed to insert image:', error);
+                    log.error('Failed to insert image:', error);
                 }
             }
         };
@@ -198,7 +200,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
     // Insert PDF via file dialog
     const insertPDF = useCallback(() => {
-        console.log('[insertPDF] Called, editor:', !!editor);
+        log.debug('insertPDF called, editor:', !!editor);
 
         // Create file input element
         const input = document.createElement('input');
@@ -207,11 +209,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         input.multiple = false;
 
         input.onchange = async (e) => {
-            console.log('[insertPDF] File selected');
+            log.debug('PDF file selected');
             const files = (e.target as HTMLInputElement).files;
             if (!files || files.length === 0) return;
             if (!editor) {
-                console.error('[insertPDF] No editor available');
+                log.error('No editor available for PDF insert');
                 return;
             }
 
@@ -228,7 +230,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 const loadingTask = pdfjs.getDocument(objectUrl);
                 const pdf = await loadingTask.promise;
                 const totalPages = pdf.numPages;
-                console.log('[insertPDF] PDF loaded, total pages:', totalPages);
+                log.debug('PDF loaded, total pages:', totalPages);
 
                 // Generate thumbnail of first page
                 let thumbnailPath = '';
@@ -246,17 +248,14 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                             canvas: canvas,
                         }).promise;
                         thumbnailPath = canvas.toDataURL('image/png');
-                        console.log('[insertPDF] Thumbnail generated');
+                        log.debug('Thumbnail generated');
                     }
                 } catch (thumbError) {
-                    console.warn('[insertPDF] Failed to generate thumbnail:', thumbError);
+                    log.warn('Failed to generate thumbnail:', thumbError);
                 }
 
                 // Get center of viewport for placement
-                const camera = editor.getCamera();
-                const viewportBounds = editor.getViewportScreenBounds();
-                const x = -camera.x + viewportBounds.width / 2 / camera.z - 100;
-                const y = -camera.y + viewportBounds.height / 2 / camera.z - 130;
+                const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.PDF.WIDTH, SHAPE_DEFAULTS.PDF.HEIGHT);
 
                 // Create PDF shape with actual metadata
                 editor.createShape({
@@ -264,8 +263,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     x,
                     y,
                     props: {
-                        w: 200,
-                        h: 260,
+                        w: SHAPE_DEFAULTS.PDF.WIDTH,
+                        h: SHAPE_DEFAULTS.PDF.HEIGHT,
                         fileId: String(objectUrl || ''),
                         filename: String(file.name || 'Document.pdf'),
                         pageNumber: 1,
@@ -274,9 +273,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     },
                 });
 
-                console.log('[insertPDF] PDF shape created successfully with', totalPages, 'pages');
+                log.debug('PDF shape created successfully with', totalPages, 'pages');
             } catch (error) {
-                console.error('Failed to insert PDF:', error);
+                log.error('Failed to insert PDF:', error);
             }
         };
 
@@ -285,20 +284,17 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
     // Insert card at center of viewport
     const insertCard = useCallback(() => {
-        console.log('[insertCard] Called, editor:', !!editor);
+        log.debug('insertCard called, editor:', !!editor);
         if (!editor) {
-            console.error('[insertCard] No editor available');
+            log.error('No editor available for card insert');
             return;
         }
 
         // Get center of viewport for placement
-        const camera = editor.getCamera();
-        const viewportBounds = editor.getViewportScreenBounds();
-        const x = -camera.x + viewportBounds.width / 2 / camera.z - 140;
-        const y = -camera.y + viewportBounds.height / 2 / camera.z - 80;
+        const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.CARD.WIDTH, SHAPE_DEFAULTS.CARD.HEIGHT);
 
         // Create card in store (persists and indexes)
-        const card = useCardStore.getState().createCard('', 'New Card', 'highlight-blue');
+        const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
 
         // Create card shape on canvas
         editor.createShape({
@@ -306,32 +302,29 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             x,
             y,
             props: {
-                w: 280,
-                h: 160,
+                w: SHAPE_DEFAULTS.CARD.WIDTH,
+                h: SHAPE_DEFAULTS.CARD.HEIGHT,
                 cardId: card.id,
                 title: card.title || 'New Card',
                 content: card.content,
-                color: card.color || 'highlight-blue',
+                color: card.color || COLORS.DEFAULT_CARD,
                 isEditing: false,
             },
         });
 
-        console.log('[insertCard] Card created with ID:', card.id);
+        log.debug('Card created with ID:', card.id);
     }, [editor]);
 
     // Insert mind map at center of viewport
     const insertMindMap = useCallback(() => {
-        console.log('[insertMindMap] Called, editor:', !!editor);
+        log.debug('insertMindMap called, editor:', !!editor);
         if (!editor) {
-            console.error('[insertMindMap] No editor available');
+            log.error('No editor available for mind map insert');
             return;
         }
 
         // Get center of viewport for placement
-        const camera = editor.getCamera();
-        const viewportBounds = editor.getViewportScreenBounds();
-        const x = -camera.x + viewportBounds.width / 2 / camera.z - 300;
-        const y = -camera.y + viewportBounds.height / 2 / camera.z - 200;
+        const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.MINDMAP.WIDTH, SHAPE_DEFAULTS.MINDMAP.HEIGHT);
 
         // Create mind map shape on canvas
         editor.createShape({
@@ -339,15 +332,15 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             x,
             y,
             props: {
-                w: 600,
-                h: 400,
+                w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
+                h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
                 rootNode: createDefaultMindMap('Main Topic'),
                 layout: 'horizontal',
                 theme: 'default',
             },
         });
 
-        console.log('[insertMindMap] Mind map created');
+        log.debug('Mind map created');
     }, [editor]);
 
     const undo = useCallback(() => {

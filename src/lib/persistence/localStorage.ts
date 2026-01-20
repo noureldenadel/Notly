@@ -13,6 +13,9 @@ import type {
     Highlight,
     Favorite
 } from './types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('localStorage');
 
 const STORAGE_KEYS = {
     projects: 'fikri_projects',
@@ -31,7 +34,7 @@ function getItems<T>(key: string): T[] {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : [];
     } catch (e) {
-        console.error(`[Persistence] Error reading ${key}:`, e);
+        log.error(`Error reading ${key}:`, e);
         return [];
     }
 }
@@ -40,7 +43,7 @@ function setItems<T>(key: string, items: T[]): void {
     try {
         localStorage.setItem(key, JSON.stringify(items));
     } catch (e) {
-        console.error(`[Persistence] Error writing ${key}:`, e);
+        log.error(`Error writing ${key}:`, e);
     }
 }
 
@@ -63,7 +66,7 @@ function deleteItem(key: string, id: string): void {
 // localStorage Persistence Implementation
 export const localStorageAdapter: PersistenceAPI = {
     async init() {
-        console.log('[Persistence] Initialized localStorage adapter');
+        log.debug('Initialized localStorage adapter');
     },
 
     // Projects

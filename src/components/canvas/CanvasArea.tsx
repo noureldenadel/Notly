@@ -3,20 +3,24 @@ import { Editor, getSnapshot, loadSnapshot } from 'tldraw';
 import { TldrawWrapper } from './TldrawWrapper';
 import { useProjectStore } from '@/stores';
 import { useEditor } from '@/hooks/useEditorContext';
+import { createLogger } from '@/lib/logger';
+import { THUMBNAIL, STORAGE_KEYS } from '@/lib/constants';
+
+const log = createLogger('CanvasArea');
 
 interface CanvasAreaProps {
   boardId?: string;
 }
 
 // Helper to get storage key for a board
-const getBoardStorageKey = (boardId: string) => `visual-thinking-board-${boardId}`;
+const getBoardStorageKey = (boardId: string) => `${STORAGE_KEYS.BOARD_PREFIX}${boardId}`;
 
 // Save board snapshot to localStorage
 const saveBoardSnapshot = (boardId: string, snapshot: string) => {
   try {
     localStorage.setItem(getBoardStorageKey(boardId), snapshot);
   } catch (e) {
-    console.warn('[CanvasArea] Failed to save board snapshot:', e);
+    log.warn('Failed to save board snapshot:', e);
   }
 };
 
@@ -25,7 +29,7 @@ const loadBoardSnapshot = (boardId: string): string | null => {
   try {
     return localStorage.getItem(getBoardStorageKey(boardId));
   } catch (e) {
-    console.warn('[CanvasArea] Failed to load board snapshot:', e);
+    log.warn('Failed to load board snapshot:', e);
     return null;
   }
 };
@@ -78,8 +82,8 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
       const img = new Image();
       img.onload = () => {
         // Create canvas with limited size for thumbnail
-        const maxWidth = 400;
-        const maxHeight = 300;
+        const maxWidth = THUMBNAIL.MAX_WIDTH;
+        const maxHeight = THUMBNAIL.MAX_HEIGHT;
         const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
         const width = img.width * scale;
         const height = img.height * scale;
@@ -98,10 +102,10 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
         URL.revokeObjectURL(url);
 
         try {
-          const dataUrl = canvas.toDataURL('image/png', 0.8);
+          const dataUrl = canvas.toDataURL('image/png', THUMBNAIL.QUALITY);
           resolve(dataUrl);
         } catch (e) {
-          console.warn('[CanvasArea] Failed to convert canvas to data URL:', e);
+          log.warn('Failed to convert canvas to data URL:', e);
           resolve(null);
         }
       };
@@ -112,7 +116,7 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
       img.src = url;
     });
   } catch (e) {
-    console.warn('[CanvasArea] Failed to capture thumbnail:', e);
+    log.warn('Failed to capture thumbnail:', e);
     return null;
   }
 };
@@ -132,14 +136,14 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         const editor = editorRef.current;
         const snapshot = getSnapshot(editor.store);
         saveBoardSnapshot(previousBoardRef.current, JSON.stringify(snapshot));
-        console.log('[CanvasArea] Saved snapshot for board:', previousBoardRef.current);
+        log.debug('Saved snapshot for board:', previousBoardRef.current);
 
         // Capture and save thumbnail for the project
         if (activeProjectId) {
           captureCanvasThumbnail(editor).then((thumbnail) => {
             if (thumbnail) {
               updateProject(activeProjectId, { thumbnailPath: thumbnail });
-              console.log('[CanvasArea] Saved thumbnail for project:', activeProjectId);
+              log.debug('Saved thumbnail for project:', activeProjectId);
             }
           });
         }
@@ -161,14 +165,14 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         // Synchronously save snapshot
         const snapshot = getSnapshot(editor.store);
         saveBoardSnapshot(currentBoardId, JSON.stringify(snapshot));
-        console.log('[CanvasArea] Saved snapshot on beforeunload');
+        log.debug('Saved snapshot on beforeunload');
 
         // Capture thumbnail synchronously (best effort)
         if (activeProjectId) {
           captureCanvasThumbnail(editor).then((thumbnail) => {
             if (thumbnail) {
               updateProject(activeProjectId, { thumbnailPath: thumbnail });
-              console.log('[CanvasArea] Saved thumbnail on beforeunload');
+              log.debug('Saved thumbnail on beforeunload');
             }
           });
         }
@@ -190,13 +194,13 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
       try {
         const parsed = JSON.parse(savedSnapshot);
         loadSnapshot(ed.store, parsed);
-        console.log('[CanvasArea] Loaded snapshot for board:', currentBoardId);
+        log.debug('Loaded snapshot for board:', currentBoardId);
       } catch (e) {
-        console.warn('[CanvasArea] Failed to parse saved snapshot:', e);
+        log.warn('Failed to parse saved snapshot:', e);
       }
     }
 
-    console.log('[CanvasArea] Editor ready for board:', currentBoardId);
+    log.debug('Editor ready for board:', currentBoardId);
   }, [setEditor, currentBoardId]);
 
   // Debounced thumbnail capture ref
@@ -217,11 +221,11 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         captureCanvasThumbnail(editorRef.current).then((thumbnail) => {
           if (thumbnail) {
             updateProject(activeProjectId, { thumbnailPath: thumbnail });
-            console.log('[CanvasArea] Auto-saved thumbnail for project:', activeProjectId);
+            log.debug('Auto-saved thumbnail for project:', activeProjectId);
           }
         });
       }
-    }, 2000); // 2 second debounce
+    }, THUMBNAIL.DEBOUNCE_MS);
   }, [currentBoardId, activeProjectId, updateProject]);
 
   return (

@@ -4,6 +4,9 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('FTS5');
 
 export interface FTSSearchResult {
     entityType: string;
@@ -31,7 +34,7 @@ export async function ftsSearch(
     filters: FTSSearchFilters = {}
 ): Promise<FTSSearchResult[]> {
     if (!isTauri) {
-        console.warn('[FTS5] Not running in Tauri, returning empty results');
+        log.warn('Not running in Tauri, returning empty results');
         return [];
     }
 
@@ -48,10 +51,10 @@ export async function ftsSearch(
             limit: filters.limit || 50,
         });
 
-        console.log('[FTS5] Search results:', results.length);
+        log.debug('Search results:', results.length);
         return results;
     } catch (error) {
-        console.error('[FTS5] Search error:', error);
+        log.error('Search error:', error);
         return [];
     }
 }
@@ -70,9 +73,9 @@ export async function ftsIndexCard(cardId: string, title: string, content: strin
             content: stripHtml(content),
             tags: tags.join(', '),
         });
-        console.log('[FTS5] Indexed card:', cardId);
+        log.debug('Indexed card:', cardId);
     } catch (error) {
-        console.error('[FTS5] Index card error:', error);
+        log.error('Index card error:', error);
     }
 }
 
@@ -90,9 +93,9 @@ export async function ftsIndexJournal(date: string, content: string): Promise<vo
             content: stripHtml(content),
             tags: '',
         });
-        console.log('[FTS5] Indexed journal:', date);
+        log.debug('Indexed journal:', date);
     } catch (error) {
-        console.error('[FTS5] Index journal error:', error);
+        log.error('Index journal error:', error);
     }
 }
 
@@ -104,9 +107,9 @@ export async function ftsRemoveEntity(entityType: string, entityId: string): Pro
 
     try {
         await invoke('fts_remove_entity', { entityType, entityId });
-        console.log('[FTS5] Removed from index:', entityType, entityId);
+        log.debug('Removed from index:', entityType, entityId);
     } catch (error) {
-        console.error('[FTS5] Remove entity error:', error);
+        log.error('Remove entity error:', error);
     }
 }
 
@@ -118,9 +121,9 @@ export async function ftsRebuildIndex(): Promise<void> {
 
     try {
         await invoke('fts_rebuild_index');
-        console.log('[FTS5] Index rebuilt successfully');
+        log.debug('Index rebuilt successfully');
     } catch (error) {
-        console.error('[FTS5] Rebuild index error:', error);
+        log.error('Rebuild index error:', error);
     }
 }
 

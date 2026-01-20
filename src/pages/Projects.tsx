@@ -7,6 +7,8 @@ import {
     LayoutGrid,
     List,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Settings,
     MoreVertical,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProjectCard, getColorHex, PROJECT_COLORS } from "@/components/projects/ProjectCard";
 import { useProjectStore } from "@/stores/projectStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 
@@ -40,6 +43,9 @@ const Projects = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
     const [settingsOpen, setSettingsOpen] = useState(false);
+
+    // Get sidebar collapse state from UI store (persisted)
+    const { leftSidebarCollapsed, toggleLeftSidebar } = useUIStore();
 
     // Get projects from store
     const {
@@ -149,26 +155,55 @@ const Projects = () => {
 
     return (
         <div className="h-screen w-screen flex bg-background">
-            {/* Sidebar */}
-            <div className="w-56 h-full bg-sidebar border-r border-sidebar-border flex flex-col">
-                {/* Logo - matches header height */}
-                <div className="h-11 flex items-center px-4 border-b border-sidebar-border">
-                    <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-                            <span className="text-xs font-bold text-primary-foreground">V</span>
-                        </div>
-                        <span className="font-semibold text-sm">Visual Think</span>
-                    </div>
+            {/* Sidebar - Collapsible */}
+            <div
+                className={cn(
+                    "h-full bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300",
+                    leftSidebarCollapsed ? "w-14" : "w-56"
+                )}
+            >
+                {/* Logo & Toggle */}
+                <div className={cn(
+                    "h-11 border-b border-sidebar-border flex items-center gap-2",
+                    leftSidebarCollapsed ? "justify-center px-0" : "px-4"
+                )}>
+                    <button
+                        onClick={() => leftSidebarCollapsed && toggleLeftSidebar()}
+                        className={cn(
+                            "w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0",
+                            leftSidebarCollapsed && "cursor-pointer hover:opacity-80 transition-opacity"
+                        )}
+                        disabled={!leftSidebarCollapsed}
+                        title={leftSidebarCollapsed ? "Expand sidebar" : undefined}
+                    >
+                        <span className="text-xs font-bold text-primary-foreground">V</span>
+                    </button>
+                    {!leftSidebarCollapsed && (
+                        <>
+                            <span className="font-semibold text-sm flex-1">Visual Think</span>
+                            <button
+                                onClick={toggleLeftSidebar}
+                                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                                title="Collapse sidebar"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {/* Navigation */}
                 <div className="flex-1 py-4 px-2">
                     <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-primary bg-primary/10"
+                        className={cn(
+                            "w-full gap-2 text-primary bg-primary/10",
+                            leftSidebarCollapsed ? "justify-center px-2" : "justify-start"
+                        )}
+                        title={leftSidebarCollapsed ? "All Projects" : undefined}
                     >
-                        <LayoutGrid className="w-4 h-4" />
-                        All Projects
+                        <LayoutGrid className="w-4 h-4 flex-shrink-0" />
+                        {!leftSidebarCollapsed && "All Projects"}
                     </Button>
                 </div>
 
@@ -176,11 +211,15 @@ const Projects = () => {
                 <div className="border-t border-sidebar-border p-2">
                     <Button
                         variant="ghost"
-                        className="w-full justify-start gap-2 text-muted-foreground"
+                        className={cn(
+                            "w-full gap-2 text-muted-foreground",
+                            leftSidebarCollapsed ? "justify-center px-2" : "justify-start"
+                        )}
                         onClick={() => setSettingsOpen(true)}
+                        title={leftSidebarCollapsed ? "Settings" : undefined}
                     >
-                        <Settings className="w-4 h-4" />
-                        Settings
+                        <Settings className="w-4 h-4 flex-shrink-0" />
+                        {!leftSidebarCollapsed && "Settings"}
                     </Button>
                 </div>
             </div>

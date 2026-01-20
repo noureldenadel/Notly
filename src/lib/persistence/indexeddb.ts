@@ -13,6 +13,9 @@ import type {
     Highlight,
     Favorite
 } from './types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('IndexedDB');
 
 const DB_NAME = 'fikri_db';
 const DB_VERSION = 1;
@@ -34,7 +37,7 @@ function openDB(): Promise<IDBDatabase> {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onerror = (event) => {
-            console.error('[Persistence] IndexedDB error:', (event.target as IDBOpenDBRequest).error);
+            log.error('IndexedDB error:', (event.target as IDBOpenDBRequest).error);
             reject((event.target as IDBOpenDBRequest).error);
         };
 
@@ -105,9 +108,9 @@ export const indexeddbAdapter: PersistenceAPI = {
     async init() {
         try {
             await openDB();
-            console.log('[Persistence] Initialized IndexedDB adapter');
+            log.debug('Initialized IndexedDB adapter');
         } catch (e) {
-            console.error('[Persistence] Failed to initialize IndexedDB:', e);
+            log.error('Failed to initialize IndexedDB:', e);
             throw e;
         }
     },

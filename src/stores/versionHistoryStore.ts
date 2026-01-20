@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('VersionHistory');
 
 export interface Version {
     id: string;
@@ -66,7 +69,7 @@ export const useVersionHistoryStore = create<VersionHistoryState>()(
                     }
                 });
 
-                console.log('[VersionHistory] Saved version for:', key);
+                log.debug('Saved version for:', key);
             },
 
             getVersions: (entityType, entityId) => {
