@@ -1,8 +1,23 @@
+also refine the spacing between the text and the 3 dots menue.
+
+another thing what is better to replace the 3 dots with x to delete the tab and the renaming will still there bt double clicking and maybe add also the context menu..or leave the 3 dots as it
+
+the top bar need mor enhancement and refinment give me plan for what can improve and fix etc
+
+focus more on the tabs behaviour ability to reorder them , each board max and min width , the long name problems  and  3 dots icons with text in the board name 
+
+
+------------------
+
+
 import functionality 
 Global Search	Searches hardcoded types, not yet scoped to project
 PDF Viewer	May have hardcoded file references
 
 
+make double clicking the project name allow user to rename it as also add min and max for better ui ux either for the input field and for the max lenght to show the full project name
+
+fix top bar
 
 =
 ---

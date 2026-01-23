@@ -130,16 +130,27 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
                                 <Separator />
 
-                                {/* Show Grid */}
+                                {/* Grid Type */}
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <Label>Show Grid</Label>
-                                        <p className="text-sm text-muted-foreground">Display canvas grid</p>
+                                        <Label>Grid Type</Label>
+                                        <p className="text-sm text-muted-foreground">Select canvas background</p>
                                     </div>
-                                    <Switch
-                                        checked={appearance.showGrid}
-                                        onCheckedChange={(checked) => updateAppearance({ showGrid: checked })}
-                                    />
+                                    <Select
+                                        value={appearance.gridType}
+                                        onValueChange={(value: AppearanceSettings['gridType']) =>
+                                            updateAppearance({ gridType: value })
+                                        }
+                                    >
+                                        <SelectTrigger className="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">None</SelectItem>
+                                            <SelectItem value="dotted">Dotted</SelectItem>
+                                            <SelectItem value="lined">Lined</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         </ScrollArea>

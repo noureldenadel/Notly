@@ -1,6 +1,8 @@
+import { useState, useRef, useEffect } from "react";
 import {
   Plus,
   MoreHorizontal,
+  MoreVertical,
   Undo2,
   Redo2,
   ZoomIn,
@@ -15,6 +17,8 @@ import {
   Upload,
   FileText,
   Home,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +41,8 @@ interface TopBarProps {
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
   onAddBoard?: () => void;
+  onBoardRename?: (boardId: string, newName: string) => void;
+  onBoardDelete?: (boardId: string) => void;
   onNavigateHome?: () => void;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
@@ -54,6 +60,8 @@ export const TopBar = ({
   activeBoard,
   onBoardChange,
   onAddBoard,
+  onBoardRename,
+  onBoardDelete,
   onNavigateHome,
   onSettingsClick,
   onSearchClick,
@@ -63,6 +71,37 @@ export const TopBar = ({
   rightSidebarOpen = true,
   onToggleRightSidebar,
 }: TopBarProps) => {
+  // State for inline editing
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingBoardId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingBoardId]);
+
+  const handleStartEdit = (boardId: string, boardName: string) => {
+    setEditingBoardId(boardId);
+    setEditText(boardName);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingBoardId && editText.trim()) {
+      onBoardRename?.(editingBoardId, editText.trim());
+    }
+    setEditingBoardId(null);
+    setEditText("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBoardId(null);
+    setEditText("");
+  };
+
   const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
 
   return (
@@ -100,16 +139,76 @@ export const TopBar = ({
         <Tabs value={activeBoard} onValueChange={onBoardChange}>
           <TabsList className="h-8 p-0.5 bg-muted/50">
             {boards.map((board) => (
-              <TabsTrigger
-                key={board.id}
-                value={board.id}
-                className={cn(
-                  "h-7 px-3 text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm",
-                  "data-[state=active]:text-foreground"
+              <div key={board.id} className="relative flex items-center group">
+                {editingBoardId === board.id ? (
+                  <input
+                    ref={inputRef}
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={handleSaveEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveEdit();
+                      if (e.key === 'Escape') handleCancelEdit();
+                    }}
+                    className="h-7 px-3 text-xs font-medium bg-card border border-primary rounded-md outline-none"
+                    style={{
+                      width: `${Math.min(Math.max(editText.length * 7 + 24, 60), 200)}px`,
+                      minWidth: '60px',
+                      maxWidth: '200px',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <>
+                    <TabsTrigger
+                      value={board.id}
+                      className={cn(
+                        "h-7 px-3 text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm flex items-center",
+                        "data-[state=active]:text-foreground pr-12 min-w-[60px] max-w-[150px] overflow-hidden"
+                      )}
+                      onDoubleClick={() => handleStartEdit(board.id, board.name)}
+                      title={board.name}
+                    >
+                      <span
+                        className="whitespace-nowrap block flex-1 overflow-hidden max-w-full"
+                        style={board.name.length > 12 ? {
+                          // Fade only the last three characters, leaving space for the menu button
+                          maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 3ch), transparent 100%)',
+                          WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 3ch), transparent 100%)',
+                          paddingRight: '1.5rem'
+                        } : undefined}
+                      >
+                        {board.name}
+                      </span>
+                    </TabsTrigger>
+                    {/* Board dropdown menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-3 h-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-36">
+                        <DropdownMenuItem onClick={() => handleStartEdit(board.id, board.name)}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onBoardDelete?.(board.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
                 )}
-              >
-                {board.name}
-              </TabsTrigger>
+              </div>
             ))}
             <button
               onClick={onAddBoard}

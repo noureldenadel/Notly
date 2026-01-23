@@ -41,6 +41,8 @@ function IndexContent() {
     isLoaded: projectsLoaded,
     setActiveBoard,
     createBoard,
+    updateBoard,
+    deleteBoard,
     createProject,
     setActiveProject,
     getProject,
@@ -48,7 +50,14 @@ function IndexContent() {
   const { createCard, loadCards, isLoaded: cardsLoaded } = useCardStore();
   const { loadFiles, isLoaded: filesLoaded } = useFileStore();
   const { loadTags, isLoaded: tagsLoaded } = useTagStore();
-  const { editor } = useEditor();
+  const {
+    editor,
+    setTool,
+    insertImage,
+    insertPDF,
+    insertCard,
+    insertMindMap
+  } = useEditor();
 
   // Modal states
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -83,6 +92,14 @@ function IndexContent() {
     }
     initApp();
   }, [loadProjects, loadCards, loadFiles, loadTags, projectsLoaded, cardsLoaded, filesLoaded, tagsLoaded]);
+
+  // Redirect to home if no active project after data is loaded
+  useEffect(() => {
+    if (projectsLoaded && !activeProjectId) {
+      log.debug('No active project, redirecting to home');
+      navigate('/');
+    }
+  }, [projectsLoaded, activeProjectId, navigate]);
 
   // Register PDF open handler for double-click on PDF shapes
   useEffect(() => {
@@ -261,6 +278,16 @@ function IndexContent() {
                 log.warn('No active project to add board to');
               }
             }}
+            onBoardRename={(boardId, newName) => {
+              updateBoard(boardId, { title: newName });
+              log.debug('Renamed board:', boardId, 'to', newName);
+              toast({ title: "Board Renamed", description: `Renamed to "${newName}"` });
+            }}
+            onBoardDelete={(boardId) => {
+              deleteBoard(boardId);
+              log.debug('Deleted board:', boardId);
+              toast({ title: "Board Deleted", description: "Board has been removed" });
+            }}
             onNavigateHome={() => navigate("/")}
             onSettingsClick={() => setSettingsOpen(true)}
             onSearchClick={() => setSearchOpen(true)}
@@ -279,7 +306,15 @@ function IndexContent() {
             {/* Canvas Area with Drop Zone */}
             <CanvasDropZone className="flex-1 relative flex flex-col min-w-0">
               <CanvasArea boardId={activeBoard} />
-              <BottomToolbar activeTool={activeTool} onToolChange={setActiveTool} />
+              <BottomToolbar
+                activeTool={activeTool}
+                onToolChange={setActiveTool}
+                onSetTool={setTool}
+                onInsertImage={insertImage}
+                onInsertPDF={insertPDF}
+                onInsertCard={insertCard}
+                onInsertMindMap={insertMindMap}
+              />
             </CanvasDropZone>
 
             {/* Right Sidebar */}

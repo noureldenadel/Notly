@@ -14,7 +14,7 @@ export interface AppearanceSettings {
     theme: 'light' | 'dark' | 'system';
     canvasBackground: string;
     defaultCardColor: string;
-    showGrid: boolean;
+    gridType: 'none' | 'dotted' | 'lined';
 }
 
 // Behavior settings
@@ -44,7 +44,7 @@ const defaultAppearance: AppearanceSettings = {
     theme: 'dark',
     canvasBackground: '#1a1a2e',
     defaultCardColor: 'highlight-blue',
-    showGrid: true,
+    gridType: 'dotted',
 };
 
 const defaultBehavior: BehaviorSettings = {

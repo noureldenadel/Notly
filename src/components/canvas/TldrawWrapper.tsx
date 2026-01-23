@@ -4,9 +4,10 @@ import {
     Editor,
     getSnapshot,
     loadSnapshot,
+    useEditor,
 } from 'tldraw';
 import 'tldraw/tldraw.css';
-import { useCanvasStore, useSyncStore } from '@/stores';
+import { useCanvasStore, useSyncStore, useSettingsStore } from '@/stores';
 import { CardShapeUtil } from './shapes/CardShape';
 import { PDFShapeUtil } from './shapes/PDFShape';
 import { HighlightShapeUtil } from './shapes/HighlightShape';
@@ -36,6 +37,7 @@ export function TldrawWrapper({
 }: TldrawWrapperProps) {
     const { setEditorRef, setViewport } = useCanvasStore();
     const { incrementPendingChanges, recordAutoSave } = useSyncStore();
+    const { appearance } = useSettingsStore();
 
     // Handle editor mount
     const handleMount = useCallback(
@@ -88,17 +90,106 @@ export function TldrawWrapper({
         [boardId, initialSnapshot, onEditorReady, onSnapshotChange, setEditorRef, setViewport, incrementPendingChanges, recordAutoSave]
     );
 
+    // Sync grid mode with Tldraw editor
+    const editor = useCanvasStore((state) => state.editorRef) as Editor | null;
+
+    useMemo(() => {
+        if (!editor) return;
+        const showGrid = appearance.gridType !== 'none';
+        if (editor.getInstanceState().isGridMode !== showGrid) {
+            // Wait for editor to be ready
+            setTimeout(() => {
+                editor.updateInstanceState({ isGridMode: showGrid });
+            }, 0);
+        }
+    }, [editor, appearance.gridType]);
+
     // Memoize shape utils array
     const shapeUtils = useMemo(() => customShapeUtils, []);
 
+    // Custom Grid Component
+    const CustomGrid = useCallback(({ x, y, z, size }: { x: number; y: number; z: number; size: number }) => {
+        // We use the editor hook to get the raw camera coordinates directly
+        // This solves parallax issues where the passed 'x/y' props might be pre-normalized
+        const editor = useEditor();
+        const camera = editor.getCamera();
+        const cx = camera.x;
+        const cy = camera.y;
+        const cz = camera.z;
+
+        if (appearance.gridType === 'none') return null;
+
+        const baseSize = 20; // Standard Tldraw grid unit
+
+        // Define grid sizes based on zoom (z) to match world scale
+        const dottedGridSize = baseSize * cz * 2.5;
+        const linedGridSize = baseSize * cz * 5;
+
+        // For lined grid
+        if (appearance.gridType === 'lined') {
+            return (
+                <svg className="tl-grid" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern
+                            id="grid-lined"
+                            width={linedGridSize}
+                            height={linedGridSize}
+                            patternUnits="userSpaceOnUse"
+                            // Lock pattern to world origin by offsetting by screen-space camera position
+                            x={(cx * cz) % linedGridSize}
+                            y={(cy * cz) % linedGridSize}
+                        >
+                            <path
+                                d={`M ${linedGridSize} 0 L 0 0 0 ${linedGridSize}`}
+                                fill="none"
+                                stroke="var(--tl-grid-color, currentColor)"
+                                strokeWidth="1"
+                                opacity="0.8"
+                            />
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid-lined)" />
+                </svg>
+            );
+        }
+
+        // Default 'dotted' grid
+        return (
+            <svg className="tl-grid" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <pattern
+                        id="grid-dotted"
+                        width={dottedGridSize}
+                        height={dottedGridSize}
+                        patternUnits="userSpaceOnUse"
+                        // Lock pattern to world origin by offsetting by screen-space camera position
+                        x={(cx * cz) % dottedGridSize}
+                        y={(cy * cz) % dottedGridSize}
+                    >
+                        <circle cx={1} cy={1} r={1.5 * cz} fill="var(--tl-grid-color, currentColor)" opacity="1" />
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid-dotted)" />
+            </svg>
+        );
+    }, [appearance.gridType]);
+
+    // Components overrides
+    const components = useMemo(() => ({
+        Grid: CustomGrid,
+    }), [CustomGrid]);
+
     return (
-        <div className={`w-full h-full ${className}`} style={{ position: 'relative' }}>
+        <div
+            className={`w-full h-full ${className}`}
+            style={{ position: 'relative' }}
+        >
             <Tldraw
                 shapeUtils={shapeUtils}
                 onMount={handleMount}
                 inferDarkMode={true}
-                // Hide tldraw's default UI - we use our own
                 hideUi={true}
+                components={components}
             />
         </div>
     );

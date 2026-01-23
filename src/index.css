@@ -39,8 +39,8 @@
 
     /* Canvas specific */
     --canvas-bg: 0 0% 6%;
-    --canvas-dots: 0 0% 15%;
-    --canvas-grid: 0 0% 12%;
+    --canvas-dots: 0 0% 18%;
+    --canvas-grid: 0 0% 20%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 10%;
@@ -95,8 +95,8 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 38 92% 50%;
     --canvas-bg: 220 14% 96%;
-    --canvas-dots: 220 14% 85%;
-    --canvas-grid: 220 14% 90%;
+    --canvas-dots: 220 14% 75%;
+    --canvas-grid: 220 14% 80%;
   }
 }
 
@@ -136,9 +136,17 @@
   }
 
   /* Canvas dot pattern */
-  .canvas-dots {
+  .canvas-grid-dotted {
     background-image: radial-gradient(circle, hsl(var(--canvas-dots)) 1px, transparent 1px);
     background-size: 20px 20px;
+  }
+
+  /* Canvas lined pattern */
+  .canvas-grid-lined {
+    background-size: 40px 40px;
+    background-image:
+      linear-gradient(to right, hsl(var(--canvas-dots)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--canvas-dots)) 1px, transparent 1px);
   }
 
   /* Subtle gradient overlays */

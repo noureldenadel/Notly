@@ -240,11 +240,43 @@ export const useProjectStore = create<ProjectState>()(
 
         deleteBoard: (id) => {
             set((state) => {
-                state.boards = state.boards.filter((b) => b.id !== id);
-                if (state.activeBoardId === id) {
-                    state.activeBoardId = null;
+                const boardToDelete = state.boards.find((b) => b.id === id);
+                if (!boardToDelete) return;
+
+                const projectId = boardToDelete.projectId;
+                const projectBoards = state.boards.filter((b) => b.projectId === projectId);
+
+                // Safety check: Is this the last board?
+                if (projectBoards.length <= 1) {
+                    // Create a new fresh board before deleting the last one
+                    const now = Date.now();
+                    const newBoard: Board = {
+                        id: nanoid(),
+                        projectId,
+                        title: 'New Board',
+                        position: 0,
+                        createdAt: now,
+                        updatedAt: now,
+                    };
+                    state.boards.push(newBoard);
+
+                    // Switch to new board
+                    state.activeBoardId = newBoard.id;
+
+                    // Save new board
+                    saveBoardToPersistence(newBoard);
+                } else if (state.activeBoardId === id) {
+                    // If deleting the active board, switch to another one (e.g. the first available that isn't the one being deleted)
+                    const nextBoard = projectBoards.find(b => b.id !== id);
+                    if (nextBoard) {
+                        state.activeBoardId = nextBoard.id;
+                    }
                 }
+
+                // Delete the target board
+                state.boards = state.boards.filter((b) => b.id !== id);
             });
+
             // Delete from persistence
             (async () => {
                 const { getPersistence } = await import('@/lib/persistence');

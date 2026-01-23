@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEditor } from "@/hooks/useEditorContext";
+
 
 interface ToolButtonProps {
   icon: React.ReactNode;
@@ -60,39 +60,53 @@ const ToolButton = ({ icon, label, shortcut, isActive, onClick }: ToolButtonProp
 interface BottomToolbarProps {
   activeTool: string;
   onToolChange: (tool: string) => void;
+  // Editor actions
+  onSetTool: (toolId: string) => void;
+  onInsertImage: () => void;
+  onInsertPDF: () => void;
+  onInsertCard: () => void;
+  onInsertMindMap: () => void;
 }
 
-export const BottomToolbar = ({ activeTool, onToolChange }: BottomToolbarProps) => {
-  const { setTool, insertImage, insertPDF, insertCard, insertMindMap } = useEditor();
+export const BottomToolbar = ({
+  activeTool,
+  onToolChange,
+  onSetTool,
+  onInsertImage,
+  onInsertPDF,
+  onInsertCard,
+  onInsertMindMap
+}: BottomToolbarProps) => {
+  // Use props instead of hook to avoid context issues
 
   // Handle tool change - sync with both local state and tldraw
   const handleToolChange = (toolId: string) => {
     // Special handling for image - triggers file dialog instead of tool switch
     if (toolId === 'image') {
-      insertImage();
+      onInsertImage();
       return;
     }
 
     // Special handling for PDF - triggers file dialog instead of tool switch
     if (toolId === 'pdf') {
-      insertPDF();
+      onInsertPDF();
       return;
     }
 
     // Special handling for card - creates card at viewport center
     if (toolId === 'card') {
-      insertCard();
+      onInsertCard();
       return;
     }
 
     // Special handling for mind map - creates mind map at viewport center
     if (toolId === 'mindmap') {
-      insertMindMap();
+      onInsertMindMap();
       return;
     }
 
     onToolChange(toolId);
-    setTool(toolId);
+    onSetTool(toolId);
   };
 
   const coreTools = [
