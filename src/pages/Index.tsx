@@ -46,6 +46,8 @@ function IndexContent() {
     createProject,
     setActiveProject,
     getProject,
+    reorderBoards,
+    updateProject,
   } = useProjectStore();
   const { createCard, loadCards, isLoaded: cardsLoaded } = useCardStore();
   const { loadFiles, isLoaded: filesLoaded } = useFileStore();
@@ -263,6 +265,12 @@ function IndexContent() {
           <TopBar
             projectName={activeProjectId ? (getProject(activeProjectId)?.title || 'Untitled Project') : 'No Project'}
             projectColor={activeProjectId ? getProject(activeProjectId)?.color : undefined}
+            onProjectRename={(newName) => {
+              if (activeProjectId) {
+                updateProject(activeProjectId, { title: newName });
+                log.debug('Renamed project:', activeProjectId, newName);
+              }
+            }}
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => {
@@ -287,6 +295,21 @@ function IndexContent() {
               deleteBoard(boardId);
               log.debug('Deleted board:', boardId);
               toast({ title: "Board Deleted", description: "Board has been removed" });
+            }}
+            onBoardReorder={(newOrder) => {
+              if (activeProjectId) {
+                reorderBoards(activeProjectId, newOrder);
+              }
+            }}
+            onBoardDuplicate={(boardId) => {
+              if (activeProjectId) {
+                const originalBoard = boards.find(b => b.id === boardId);
+                if (originalBoard) {
+                  const newBoard = createBoard(activeProjectId, `${originalBoard.name} (Copy)`);
+                  setActiveBoard(newBoard.id);
+                  toast({ title: "Board Duplicated", description: "Created a copy of the board" });
+                }
+              }
             }}
             onNavigateHome={() => navigate("/")}
             onSettingsClick={() => setSettingsOpen(true)}

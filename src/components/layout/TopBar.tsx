@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import {
   Plus,
   MoreHorizontal,
-  MoreVertical,
   Undo2,
   Redo2,
   ZoomIn,
@@ -17,11 +16,9 @@ import {
   Upload,
   FileText,
   Home,
-  Pencil,
-  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +30,33 @@ import { cn } from "@/lib/utils";
 import { useEditor } from "@/hooks/useEditorContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getColorHex } from "@/components/projects/ProjectCard";
+import { DraggableTab } from "./DraggableTab";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  type Modifier,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('TopBar');
+
+const restrictToHorizontalAxis: Modifier = ({ transform }) => {
+  return {
+    ...transform,
+    y: 0,
+  };
+};
 
 interface TopBarProps {
   projectName: string;
@@ -40,9 +64,12 @@ interface TopBarProps {
   boards: { id: string; name: string }[];
   activeBoard: string;
   onBoardChange: (boardId: string) => void;
+  onProjectRename?: (newName: string) => void;
   onAddBoard?: () => void;
   onBoardRename?: (boardId: string, newName: string) => void;
   onBoardDelete?: (boardId: string) => void;
+  onBoardReorder?: (newOrder: string[]) => void;
+  onBoardDuplicate?: (boardId: string) => void;
   onNavigateHome?: () => void;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
@@ -59,9 +86,12 @@ export const TopBar = ({
   boards,
   activeBoard,
   onBoardChange,
+  onProjectRename,
   onAddBoard,
   onBoardRename,
   onBoardDelete,
+  onBoardReorder,
+  onBoardDuplicate,
   onNavigateHome,
   onSettingsClick,
   onSearchClick,
@@ -76,6 +106,11 @@ export const TopBar = ({
   const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // State for project name editing
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [projectEditText, setProjectEditText] = useState("");
+  const projectInputRef = useRef<HTMLInputElement>(null);
+
   // Focus input when editing starts
   useEffect(() => {
     if (editingBoardId && inputRef.current) {
@@ -83,6 +118,14 @@ export const TopBar = ({
       inputRef.current.select();
     }
   }, [editingBoardId]);
+
+  // Focus project input
+  useEffect(() => {
+    if (isEditingProject && projectInputRef.current) {
+      projectInputRef.current.focus();
+      projectInputRef.current.select();
+    }
+  }, [isEditingProject]);
 
   const handleStartEdit = (boardId: string, boardName: string) => {
     setEditingBoardId(boardId);
@@ -102,7 +145,40 @@ export const TopBar = ({
     setEditText("");
   };
 
+  // Project editing handlers
+  const handleStartProjectEdit = () => {
+    setProjectEditText(projectName);
+    setIsEditingProject(true);
+  };
+
+  const handleSaveProjectEdit = () => {
+    if (projectEditText.trim() && projectEditText !== projectName) {
+      onProjectRename?.(projectEditText.trim());
+    }
+    setIsEditingProject(false);
+  };
+
   const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
+
+  // DND Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = boards.findIndex((b) => b.id === active.id);
+      const newIndex = boards.findIndex((b) => b.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(boards.map(b => b.id), oldIndex, newIndex);
+        onBoardReorder?.(newOrder);
+      }
+    }
+  };
 
   return (
     <div className="h-11 bg-card border-b border-border flex items-center px-3 gap-3">
@@ -125,99 +201,93 @@ export const TopBar = ({
 
       {/* Project Info */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 px-2 py-1">
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors cursor-text" onDoubleClick={handleStartProjectEdit}>
           <div
             className="w-3 h-3 rounded-sm"
             style={{ backgroundColor: getColorHex(projectColor) }}
           />
-          <span className="text-sm font-medium">{projectName}</span>
+
+          {isEditingProject ? (
+            <input
+              ref={projectInputRef}
+              value={projectEditText}
+              onChange={(e) => setProjectEditText(e.target.value)}
+              onBlur={handleSaveProjectEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveProjectEdit();
+                if (e.key === 'Escape') setIsEditingProject(false);
+              }}
+              className="h-6 px-1.5 text-sm font-medium bg-card border border-primary rounded-sm outline-none"
+              style={{
+                width: `${Math.min(Math.max(projectEditText.length * 8 + 24, 100), 300)}px`,
+                minWidth: '100px',
+                maxWidth: '300px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="text-sm font-medium select-none">{projectName}</span>
+          )}
         </div>
       </div>
 
       {/* Board Tabs */}
-      <div className="flex-1 flex items-center">
-        <Tabs value={activeBoard} onValueChange={onBoardChange}>
-          <TabsList className="h-8 p-0.5 bg-muted/50">
-            {boards.map((board) => (
-              <div key={board.id} className="relative flex items-center group">
-                {editingBoardId === board.id ? (
-                  <input
-                    ref={inputRef}
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    onBlur={handleSaveEdit}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveEdit();
-                      if (e.key === 'Escape') handleCancelEdit();
-                    }}
-                    className="h-7 px-3 text-xs font-medium bg-card border border-primary rounded-md outline-none"
-                    style={{
-                      width: `${Math.min(Math.max(editText.length * 7 + 24, 60), 200)}px`,
-                      minWidth: '60px',
-                      maxWidth: '200px',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <>
-                    <TabsTrigger
-                      value={board.id}
-                      className={cn(
-                        "h-7 px-3 text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm flex items-center",
-                        "data-[state=active]:text-foreground pr-12 min-w-[60px] max-w-[150px] overflow-hidden"
-                      )}
-                      onDoubleClick={() => handleStartEdit(board.id, board.name)}
-                      title={board.name}
-                    >
-                      <span
-                        className="whitespace-nowrap block flex-1 overflow-hidden max-w-full"
-                        style={board.name.length > 12 ? {
-                          // Fade only the last three characters, leaving space for the menu button
-                          maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 3ch), transparent 100%)',
-                          WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 3ch), transparent 100%)',
-                          paddingRight: '1.5rem'
-                        } : undefined}
-                      >
-                        {board.name}
-                      </span>
-                    </TabsTrigger>
-                    {/* Board dropdown menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="w-3 h-3" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-36">
-                        <DropdownMenuItem onClick={() => handleStartEdit(board.id, board.name)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onBoardDelete?.(board.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={onAddBoard}
-              className="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </TabsList>
-        </Tabs>
+      <div className="flex-1 flex items-center overflow-hidden">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          modifiers={[restrictToHorizontalAxis]}
+        >
+          <Tabs value={activeBoard} onValueChange={onBoardChange} className="w-full">
+            <TabsList className="h-8 p-0.5 bg-muted/50 w-full justify-start overflow-x-auto no-scrollbar scroll-smooth overflow-y-hidden">
+              <SortableContext
+                items={boards.map(b => b.id)}
+                strategy={horizontalListSortingStrategy}
+              >
+                {boards.map((board) => (
+                  <div key={board.id} className="relative flex items-center group">
+                    {editingBoardId === board.id ? (
+                      <input
+                        ref={inputRef}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onBlur={handleSaveEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit();
+                          if (e.key === 'Escape') handleCancelEdit();
+                        }}
+                        className="h-7 px-3 text-xs font-medium bg-card border border-primary rounded-md outline-none"
+                        style={{
+                          width: `${Math.min(Math.max(editText.length * 7 + 24, 60), 200)}px`,
+                          minWidth: '60px',
+                          maxWidth: '200px',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <DraggableTab
+                        board={board}
+                        isActive={activeBoard === board.id}
+                        onClick={() => onBoardChange(board.id)}
+                        onRename={() => handleStartEdit(board.id, board.name)}
+                        onDelete={() => onBoardDelete?.(board.id)}
+                        onDuplicate={() => onBoardDuplicate?.(board.id)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </SortableContext>
+              <button
+                onClick={onAddBoard}
+                className="h-7 w-7 flex-shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors ml-1"
+                title="New Board"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </TabsList>
+          </Tabs>
+        </DndContext>
       </div>
 
       {/* Right Actions */}

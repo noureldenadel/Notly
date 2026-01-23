@@ -1,15 +1,4 @@
-also refine the spacing between the text and the 3 dots menue.
-
-another thing what is better to replace the 3 dots with x to delete the tab and the renaming will still there bt double clicking and maybe add also the context menu..or leave the 3 dots as it
-
-the top bar need mor enhancement and refinment give me plan for what can improve and fix etc
-
-focus more on the tabs behaviour ability to reorder them , each board max and min width , the long name problems  and  3 dots icons with text in the board name 
-
-
-------------------
-
-
+<!-- 
 import functionality 
 Global Search	Searches hardcoded types, not yet scoped to project
 PDF Viewer	May have hardcoded file references
@@ -58,4 +47,6 @@ What would you prefer?
 Keep search but limit to Projects/Boards only
 Remove search entirely (sidebar is enough for navigation)
 Keep as-is (won't work well but can fix later)
----
+--- -->
+
+

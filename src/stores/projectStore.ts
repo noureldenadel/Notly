@@ -291,19 +291,22 @@ export const useProjectStore = create<ProjectState>()(
             });
         },
 
-        reorderBoards: (projectId, boardIds) => {
+        reorderBoards: (projectId: string, boardIds: string[]) => {
             set((state) => {
+                // Update position for each board in the list
                 boardIds.forEach((id, index) => {
                     const board = state.boards.find((b) => b.id === id && b.projectId === projectId);
                     if (board) {
                         board.position = index;
                         board.updatedAt = Date.now();
-                        // Clone to avoid Immer proxy revocation
+                        // Clone to avoid Immer proxy revocation issues with async calls
                         const boardClone = { ...board };
+                        // Persist change
                         saveBoardToPersistence(boardClone);
                     }
                 });
             });
+            log.debug('Boards reordered for project:', projectId);
         },
 
         // Getters
