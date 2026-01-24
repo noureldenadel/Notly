@@ -9,7 +9,6 @@ import {
   Maximize2,
   Settings,
   Search,
-  PanelRight,
   Keyboard,
   HelpCircle,
   Download,
@@ -76,8 +75,6 @@ interface TopBarProps {
   onImportExportClick?: () => void;
   onShortcutsClick?: () => void;
   onPresentationClick?: () => void;
-  rightSidebarOpen?: boolean;
-  onToggleRightSidebar?: () => void;
 }
 
 export const TopBar = ({
@@ -98,8 +95,6 @@ export const TopBar = ({
   onImportExportClick,
   onShortcutsClick,
   onPresentationClick,
-  rightSidebarOpen = true,
-  onToggleRightSidebar,
 }: TopBarProps) => {
   // State for inline editing
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
@@ -447,29 +442,6 @@ export const TopBar = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="w-px h-5 bg-border mx-1" />
-
-        {/* Right Sidebar Toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "w-7 h-7",
-                rightSidebarOpen
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={onToggleRightSidebar}
-            >
-              <PanelRight className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {rightSidebarOpen ? "Hide Right Sidebar" : "Show Right Sidebar"}
-          </TooltipContent>
-        </Tooltip>
       </div>
     </div>
   );

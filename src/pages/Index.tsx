@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { RightSidebar } from "@/components/layout/RightSidebar";
+
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomToolbar } from "@/components/layout/BottomToolbar";
 import { CanvasArea } from "@/components/canvas/CanvasArea";
@@ -27,8 +27,6 @@ const log = createLogger('Index');
 function IndexContent() {
   const navigate = useNavigate();
   const {
-    rightSidebarOpen,
-    setRightSidebarOpen,
     activeTool,
     setActiveTool,
   } = useUIStore();
@@ -320,8 +318,6 @@ function IndexContent() {
               const { startPresentation } = usePresentationStore.getState();
               startPresentation([]);
             }}
-            rightSidebarOpen={rightSidebarOpen}
-            onToggleRightSidebar={() => setRightSidebarOpen(!rightSidebarOpen)}
           />
 
           {/* Main Content */}
@@ -339,12 +335,6 @@ function IndexContent() {
                 onInsertMindMap={insertMindMap}
               />
             </CanvasDropZone>
-
-            {/* Right Sidebar */}
-            <RightSidebar
-              isOpen={rightSidebarOpen}
-              onClose={() => setRightSidebarOpen(false)}
-            />
           </div>
         </div>
       </DndProvider>
