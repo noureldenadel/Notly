@@ -55,8 +55,8 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
                 style={{
                     width: shape.props.w,
                     height: shape.props.h,
-                    backgroundColor: 'hsl(220 14% 12%)',
-                    border: '2px solid hsl(220 14% 20%)',
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '2px solid hsl(var(--border))',
                     borderRadius: '8px',
                     display: 'flex',
                     flexDirection: 'column',

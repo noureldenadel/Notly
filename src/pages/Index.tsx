@@ -1,55 +1,75 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomToolbar } from "@/components/layout/BottomToolbar";
 import { CanvasArea } from "@/components/canvas/CanvasArea";
 import { EditorProvider, useEditor } from "@/hooks/useEditorContext";
 import { DndProvider, DraggableItem, CanvasDropZone } from "@/components/dnd";
-import { useUIStore, useProjectStore, useCardStore, useFileStore, useTagStore, usePresentationStore } from "@/stores";
+import { useUIStore, useProjectStore, useCardStore, usePresentationStore } from "@/stores";
 import { createCardOnCanvas } from "@/components/canvas/TldrawWrapper";
-import { SettingsModal } from "@/components/settings";
-import { ImportExportModal, ShortcutsCheatsheet } from "@/components/modals";
 import { PresentationMode } from "@/components/presentation";
-import { PDFViewerModal } from "@/components/pdf";
-import { CardEditorModal } from "@/components/editor";
-import { GlobalSearch } from "@/components/search";
-import { setOpenPDFHandler } from "@/lib/pdfEvents";
-import { setOpenCardEditorHandler } from "@/lib/cardEvents";
-import { initPersistence } from "@/lib/persistence";
 import { useKeyboardShortcuts, createDefaultShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useToast } from "@/hooks/use-toast";
 import { createLogger } from "@/lib/logger";
+import { ModalManager } from "@/components/modals/ModalManager";
+import { AppInitializer } from "@/components/AppInitializer";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
 
 const log = createLogger('Index');
 
 // Inner component that has access to editor context
 function IndexContent() {
   const navigate = useNavigate();
-  const {
-    activeTool,
-    setActiveTool,
-  } = useUIStore();
+  const { toast } = useToast();
 
-  const {
-    activeBoardId,
-    activeProjectId,
-    getBoardsByProject,
-    loadProjects,
-    isLoaded: projectsLoaded,
-    setActiveBoard,
-    createBoard,
-    updateBoard,
-    deleteBoard,
-    createProject,
-    setActiveProject,
-    getProject,
-    reorderBoards,
-    updateProject,
-  } = useProjectStore();
-  const { createCard, loadCards, isLoaded: cardsLoaded } = useCardStore();
-  const { loadFiles, isLoaded: filesLoaded } = useFileStore();
-  const { loadTags, isLoaded: tagsLoaded } = useTagStore();
+  // UI Actions - using atomic selectors where possible or just the hook if actions are stable
+  const activeTool = useUIStore(s => s.activeTool);
+  const setActiveTool = useUIStore(s => s.setActiveTool);
+  const openModal = useUIStore(s => s.openModal);
+
+  // Project Actions & State
+  const activeProjectId = useProjectStore(s => s.activeProjectId);
+  const activeBoardId = useProjectStore(s => s.activeBoardId);
+  const setActiveBoard = useProjectStore(s => s.setActiveBoard);
+  const isLoaded = useProjectStore(s => s.isLoaded);
+
+  const allBoards = useProjectStore(s => s.boards);
+
+  // Stable boards array
+  const boards = useMemo(() => {
+    // If not loaded yet, return empty to avoid flicker logic, though LoadingScreen handles this.
+    if (!isLoaded) return [];
+
+    if (!activeProjectId) return [
+      { id: "main", name: "Main Canvas" },
+      { id: "research", name: "Research" },
+      { id: "planning", name: "Planning" },
+    ];
+    return allBoards
+      .filter(b => b.projectId === activeProjectId)
+      .sort((a, b) => a.position - b.position)
+      .map(b => ({ id: b.id, name: b.title }));
+  }, [activeProjectId, allBoards, isLoaded]);
+
+  const activeProjectColor = useProjectStore(s => s.projects.find(p => p.id === s.activeProjectId)?.color);
+  const activeProjectTitle = useProjectStore(s => s.projects.find(p => p.id === s.activeProjectId)?.title);
+
+  // Actions
+  const createBoard = useProjectStore(s => s.createBoard);
+  const updateBoard = useProjectStore(s => s.updateBoard);
+  const deleteBoard = useProjectStore(s => s.deleteBoard);
+  const updateProject = useProjectStore(s => s.updateProject);
+  const reorderBoards = useProjectStore(s => s.reorderBoards);
+
+  // Card Store
+  const createCardStore = useCardStore(s => s.createCard);
+
+  // Presentation State
+  const startPresentation = usePresentationStore(s => s.startPresentation);
+
+  // Editor Context
   const {
     editor,
     setTool,
@@ -59,79 +79,6 @@ function IndexContent() {
     insertMindMap
   } = useEditor();
 
-  // Modal states
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [importExportOpen, setImportExportOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
-  const [activePdfUrl, setActivePdfUrl] = useState<string | undefined>(undefined);
-  const [activePdfName, setActivePdfName] = useState<string | undefined>(undefined);
-  const [searchOpen, setSearchOpen] = useState(false);
-
-  // Card editor state
-  const [cardEditorOpen, setCardEditorOpen] = useState(false);
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
-
-  const { isPresenting } = usePresentationStore();
-
-  // Initialize persistence and load all data on mount
-  useEffect(() => {
-    async function initApp() {
-      await initPersistence();
-
-      // Load all stores in parallel
-      await Promise.all([
-        !projectsLoaded && loadProjects(),
-        !cardsLoaded && loadCards(),
-        !filesLoaded && loadFiles(),
-        !tagsLoaded && loadTags(),
-      ]);
-
-      log.debug('All data loaded');
-    }
-    initApp();
-  }, [loadProjects, loadCards, loadFiles, loadTags, projectsLoaded, cardsLoaded, filesLoaded, tagsLoaded]);
-
-  // Redirect to home if no active project after data is loaded
-  useEffect(() => {
-    if (projectsLoaded && !activeProjectId) {
-      log.debug('No active project, redirecting to home');
-      navigate('/');
-    }
-  }, [projectsLoaded, activeProjectId, navigate]);
-
-  // Register PDF open handler for double-click on PDF shapes
-  useEffect(() => {
-    setOpenPDFHandler((pdfUrl, fileName, _pageNumber) => {
-      log.debug('Opening PDF viewer:', fileName);
-      setActivePdfUrl(pdfUrl);
-      setActivePdfName(fileName);
-      setPdfViewerOpen(true);
-    });
-
-    return () => {
-      setOpenPDFHandler(null);
-    };
-  }, []);
-
-  // Register Card editor handler for double-click on card shapes
-  useEffect(() => {
-    setOpenCardEditorHandler((cardId, shapeId) => {
-      log.debug('Opening card editor:', cardId);
-      setActiveCardId(cardId);
-      setActiveShapeId(shapeId);
-      setCardEditorOpen(true);
-    });
-
-    return () => {
-      setOpenCardEditorHandler(null);
-    };
-  }, []);
-
-  const { toast } = useToast();
-  const { startPresentation } = usePresentationStore();
-
   // Create card shortcut handler
   const handleCreateCardShortcut = useCallback(() => {
     if (!editor) return;
@@ -140,7 +87,7 @@ function IndexContent() {
     const center = viewport.center;
 
     // Create card in store
-    const card = createCard('', 'New Card', 'highlight-blue');
+    const card = createCardStore('', 'New Card', 'highlight-blue');
 
     // Add to canvas
     createCardOnCanvas(editor, {
@@ -151,19 +98,15 @@ function IndexContent() {
       content: '',
       color: 'highlight-blue',
     });
-
-    // Optional: Select the new shape to allow immediate editing? 
-    // Usually handled by createCardOnCanvas returning ID or we can find it.
-  }, [editor, createCard]);
+  }, [editor, createCardStore]);
 
   // Register global shortcuts
   const shortcuts = createDefaultShortcuts({
-    openSearch: () => setSearchOpen(true),
-    openSettings: () => setSettingsOpen(true),
-    showShortcuts: () => setShortcutsOpen(true),
+    openSearch: () => openModal('search'),
+    openSettings: () => openModal('settings'),
+    showShortcuts: () => openModal('shortcuts'),
     createCard: handleCreateCardShortcut,
     save: () => {
-      // Manual save trigger / confidence boost for user
       toast({ title: "Saved", description: "Changes are saved automatically" });
     },
     startPresentation: () => {
@@ -173,18 +116,9 @@ function IndexContent() {
 
   useKeyboardShortcuts(shortcuts);
 
-  // Get boards for the active project (or use demo data)
-  const boards = activeProjectId
-    ? getBoardsByProject(activeProjectId).map(b => ({ id: b.id, name: b.title }))
-    : [
-      { id: "main", name: "Main Canvas" },
-      { id: "research", name: "Research" },
-      { id: "planning", name: "Planning" },
-    ];
-
   const activeBoard = activeBoardId || "main";
 
-  // Handle drop on canvas from library
+  // Handle drop on canvas
   const handleDropOnCanvas = useCallback((item: DraggableItem, position: { x: number; y: number }) => {
     if (!editor) {
       log.warn('No editor available for drop');
@@ -193,18 +127,14 @@ function IndexContent() {
 
     log.debug('Dropped item:', item.type, 'at', position);
 
-    // Convert screen position to canvas coordinates
     const screenPoint = { x: position.x, y: position.y };
     const canvasPoint = editor.screenToPage(screenPoint);
 
     switch (item.type) {
       case 'card': {
-        // Create card in store
-        const card = createCard('', item.data.title || 'Dropped Card', item.data.color || 'highlight-blue');
-
-        // Add to canvas
+        const card = createCardStore('', item.data.title || 'Dropped Card', item.data.color || 'highlight-blue');
         createCardOnCanvas(editor, {
-          x: canvasPoint.x - 140, // Center the card
+          x: canvasPoint.x - 140,
           y: canvasPoint.y - 80,
           cardId: card.id,
           title: item.data.title || 'Dropped Card',
@@ -213,10 +143,8 @@ function IndexContent() {
         });
         break;
       }
-
       case 'file':
       case 'pdf': {
-        // Create image/PDF shape
         editor.createShape({
           type: item.type === 'pdf' ? 'pdf' : 'image',
           x: canvasPoint.x - 100,
@@ -231,7 +159,6 @@ function IndexContent() {
         });
         break;
       }
-
       case 'highlight': {
         editor.createShape({
           type: 'highlight',
@@ -249,55 +176,46 @@ function IndexContent() {
         });
         break;
       }
-
       default:
         log.warn('Unknown item type:', item.type);
     }
-  }, [editor, createCard]);
+  }, [editor, createCardStore]);
+
+  // Show loading screen until projects are loaded
+  if (!isLoaded) {
+    return <LoadingScreen />;
+  }
 
   return (
     <>
-      <DndProvider onDropOnCanvas={handleDropOnCanvas}>
-        <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
-          {/* Top Bar - connected to tldraw */}
+      <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
+        <DndProvider onDropOnCanvas={handleDropOnCanvas}>
+          {/* Top Bar */}
           <TopBar
-            projectName={activeProjectId ? (getProject(activeProjectId)?.title || 'Untitled Project') : 'No Project'}
-            projectColor={activeProjectId ? getProject(activeProjectId)?.color : undefined}
+            projectName={activeProjectTitle || (activeProjectId ? 'Untitled Project' : 'No Project')}
+            projectColor={activeProjectColor}
             onProjectRename={(newName) => {
-              if (activeProjectId) {
-                updateProject(activeProjectId, { title: newName });
-                log.debug('Renamed project:', activeProjectId, newName);
-              }
+              if (activeProjectId) updateProject(activeProjectId, { title: newName });
             }}
             boards={boards}
             activeBoard={activeBoard}
-            onBoardChange={(boardId) => {
-              log.debug('Switching to board:', boardId);
-              setActiveBoard(boardId);
-            }}
+            onBoardChange={(boardId) => setActiveBoard(boardId)}
             onAddBoard={() => {
               if (activeProjectId) {
                 const board = createBoard(activeProjectId, 'New Board');
                 setActiveBoard(board.id);
-                log.debug('Created new board:', board.title);
-              } else {
-                log.warn('No active project to add board to');
               }
             }}
             onBoardRename={(boardId, newName) => {
               updateBoard(boardId, { title: newName });
-              log.debug('Renamed board:', boardId, 'to', newName);
               toast({ title: "Board Renamed", description: `Renamed to "${newName}"` });
             }}
             onBoardDelete={(boardId) => {
               deleteBoard(boardId);
-              log.debug('Deleted board:', boardId);
               toast({ title: "Board Deleted", description: "Board has been removed" });
             }}
             onBoardReorder={(newOrder) => {
-              if (activeProjectId) {
-                reorderBoards(activeProjectId, newOrder);
-              }
+              if (activeProjectId) reorderBoards(activeProjectId, newOrder);
             }}
             onBoardDuplicate={(boardId) => {
               if (activeProjectId) {
@@ -310,19 +228,15 @@ function IndexContent() {
               }
             }}
             onNavigateHome={() => navigate("/")}
-            onSettingsClick={() => setSettingsOpen(true)}
-            onSearchClick={() => setSearchOpen(true)}
-            onImportExportClick={() => setImportExportOpen(true)}
-            onShortcutsClick={() => setShortcutsOpen(true)}
-            onPresentationClick={() => {
-              const { startPresentation } = usePresentationStore.getState();
-              startPresentation([]);
-            }}
+            onSettingsClick={() => openModal('settings')}
+            onSearchClick={() => openModal('search')}
+            onImportExportClick={() => openModal('import-export')}
+            onShortcutsClick={() => openModal('shortcuts')}
+            onPresentationClick={() => startPresentation([])}
           />
 
           {/* Main Content */}
           <div className="flex-1 flex overflow-hidden">
-            {/* Canvas Area with Drop Zone */}
             <CanvasDropZone className="flex-1 relative flex flex-col min-w-0">
               <CanvasArea boardId={activeBoard} />
               <BottomToolbar
@@ -336,79 +250,14 @@ function IndexContent() {
               />
             </CanvasDropZone>
           </div>
-        </div>
-      </DndProvider>
+        </DndProvider>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
+        {/* Modal Manager handles all modals */}
+        <ModalManager />
 
-      {/* Import/Export Modal */}
-      <ImportExportModal
-        open={importExportOpen}
-        onOpenChange={setImportExportOpen}
-      />
-
-      {/* Shortcuts Cheatsheet */}
-      <ShortcutsCheatsheet
-        open={shortcutsOpen}
-        onOpenChange={setShortcutsOpen}
-      />
-
-      {/* Presentation Mode */}
-      <PresentationMode />
-
-      {/* PDF Viewer Modal */}
-      <PDFViewerModal
-        isOpen={pdfViewerOpen}
-        onClose={() => {
-          setPdfViewerOpen(false);
-          setActivePdfUrl(undefined);
-          setActivePdfName(undefined);
-        }}
-        pdfUrl={activePdfUrl}
-        fileName={activePdfName}
-      />
-
-      {/* Global Search Modal */}
-      <GlobalSearch
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onResultClick={(result) => {
-          log.debug('Navigate to:', result.type, result.id);
-          // TODO: Navigate to result based on type
-        }}
-      />
-
-      {/* Card Editor Modal */}
-      <CardEditorModal
-        cardId={activeCardId}
-        isOpen={cardEditorOpen}
-        onClose={() => {
-          setCardEditorOpen(false);
-          setActiveCardId(null);
-          setActiveShapeId(null);
-        }}
-        onSave={(cardId) => {
-          // Sync shape with card store data
-          if (editor && activeShapeId) {
-            const card = useCardStore.getState().getCard(cardId);
-            if (card) {
-              editor.updateShape({
-                id: activeShapeId as any,
-                type: 'card',
-                props: {
-                  title: card.title,
-                  content: card.content,
-                  color: card.color,
-                },
-              });
-            }
-          }
-        }}
-      />
+        {/* Presentation Mode */}
+        <PresentationMode />
+      </div>
     </>
   );
 }
@@ -416,9 +265,12 @@ function IndexContent() {
 // Main component wraps with EditorProvider
 const Index = () => {
   return (
-    <EditorProvider>
-      <IndexContent />
-    </EditorProvider>
+    <>
+      <AppInitializer />
+      <EditorProvider>
+        <IndexContent />
+      </EditorProvider>
+    </>
   );
 };
 

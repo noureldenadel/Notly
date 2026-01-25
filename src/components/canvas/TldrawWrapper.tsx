@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import {
     Tldraw,
     Editor,
@@ -104,6 +104,24 @@ export function TldrawWrapper({
         }
     }, [editor, appearance.gridType]);
 
+    // Sync dark mode
+    useEffect(() => {
+        if (!editor) return;
+
+        const updateTheme = () => {
+            const scheme = appearance.theme === 'system' ? 'system' : appearance.theme;
+            editor.user.updateUserPreferences({ colorScheme: scheme });
+        };
+
+        updateTheme();
+
+        if (appearance.theme === 'system') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            mediaQuery.addEventListener('change', updateTheme);
+            return () => mediaQuery.removeEventListener('change', updateTheme);
+        }
+    }, [editor, appearance.theme]);
+
     // Memoize shape utils array
     const shapeUtils = useMemo(() => customShapeUtils, []);
 
@@ -187,7 +205,7 @@ export function TldrawWrapper({
             <Tldraw
                 shapeUtils={shapeUtils}
                 onMount={handleMount}
-                inferDarkMode={true}
+                inferDarkMode={false}
                 hideUi={true}
                 components={components}
             />

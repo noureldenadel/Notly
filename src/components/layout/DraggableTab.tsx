@@ -41,9 +41,9 @@ export function DraggableTab({
 
     const style = {
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: isDragging ? 'none' : transition, // Force no transition when dragging to override CSS classes
         zIndex: isDragging ? 50 : 'auto',
-        opacity: isDragging ? 0.5 : 1,
+        opacity: 1,
     };
 
     // Handle double click for rename
