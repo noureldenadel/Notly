@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomToolbar } from "@/components/layout/BottomToolbar";
+import { TextFormattingToolbar } from "@/components/layout/TextFormattingToolbar";
 import { CanvasArea } from "@/components/canvas/CanvasArea";
 import { EditorProvider, useEditor } from "@/hooks/useEditorContext";
 import { DndProvider, DraggableItem, CanvasDropZone } from "@/components/dnd";
@@ -13,9 +14,15 @@ import { PresentationMode } from "@/components/presentation";
 import { useKeyboardShortcuts, createDefaultShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useToast } from "@/hooks/use-toast";
 import { createLogger } from "@/lib/logger";
+import { DefaultFontStyle } from "tldraw";
 import { ModalManager } from "@/components/modals/ModalManager";
 import { AppInitializer } from "@/components/AppInitializer";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const log = createLogger('Index');
 
@@ -76,6 +83,13 @@ function IndexContent() {
     insertCard,
     insertMindMap
   } = useEditor();
+
+  // Set default font to Sans Serif
+  useEffect(() => {
+    if (editor) {
+      editor.setStyleForNextShapes(DefaultFontStyle, 'sans');
+    }
+  }, [editor]);
 
   // Create card shortcut handler
   const handleCreateCardShortcut = useCallback(() => {
@@ -195,6 +209,9 @@ function IndexContent() {
             onProjectRename={(newName) => {
               if (activeProjectId) updateProject(activeProjectId, { title: newName });
             }}
+            onProjectColorChange={(newColor) => {
+              if (activeProjectId) updateProject(activeProjectId, { color: newColor });
+            }}
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => setActiveBoard(boardId)}
@@ -249,6 +266,9 @@ function IndexContent() {
 
         {/* Modal Manager handles all modals */}
         <ModalManager />
+
+        {/* Text Formatting Toolbar - appears above selected text */}
+        <TextFormattingToolbar />
 
         {/* Presentation Mode */}
         <PresentationMode />

@@ -28,7 +28,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useEditor } from "@/hooks/useEditorContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { getColorHex } from "@/components/projects/ProjectCard";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { getColorHex, PROJECT_COLORS } from "@/components/projects/ProjectCard";
 import { DraggableTab } from "./DraggableTab";
 import {
   DndContext,
@@ -75,6 +80,7 @@ interface TopBarProps {
   onImportExportClick?: () => void;
   onShortcutsClick?: () => void;
   onPresentationClick?: () => void;
+  onProjectColorChange?: (newColor: string) => void;
 }
 
 export const TopBar = ({
@@ -95,6 +101,7 @@ export const TopBar = ({
   onImportExportClick,
   onShortcutsClick,
   onPresentationClick,
+  onProjectColorChange,
 }: TopBarProps) => {
   // State for inline editing
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
@@ -105,6 +112,9 @@ export const TopBar = ({
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [projectEditText, setProjectEditText] = useState("");
   const projectInputRef = useRef<HTMLInputElement>(null);
+
+  // State for color picker
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -197,10 +207,38 @@ export const TopBar = ({
       {/* Project Info */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted/50 transition-colors cursor-text" onDoubleClick={handleStartProjectEdit}>
-          <div
-            className="w-3 h-3 rounded-sm"
-            style={{ backgroundColor: getColorHex(projectColor) }}
-          />
+          {/* Color Square with Popover */}
+          <Popover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+            <PopoverTrigger asChild>
+              <div
+                className="w-3 h-3 rounded-sm cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+                style={{ backgroundColor: getColorHex(projectColor) }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsColorPickerOpen(true);
+                }}
+              />
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" align="start">
+              <div className="grid grid-cols-3 gap-2">
+                {PROJECT_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    onClick={() => {
+                      onProjectColorChange?.(color.value);
+                      setIsColorPickerOpen(false);
+                    }}
+                    className={cn(
+                      "w-8 h-8 rounded-md transition-all hover:scale-110",
+                      projectColor?.includes(color.value) && "ring-2 ring-offset-2 ring-primary"
+                    )}
+                    style={{ backgroundColor: color.hex }}
+                    title={color.name}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {isEditingProject ? (
             <input

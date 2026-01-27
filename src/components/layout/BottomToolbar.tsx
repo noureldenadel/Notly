@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ToolSettingsPanel } from "./ToolSettingsPanel";
 
 
 interface ToolButtonProps {
@@ -133,54 +134,60 @@ export const BottomToolbar = ({
   ];
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-1 p-1.5 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-lg">
-        {/* Core Tools */}
-        <div className="flex items-center gap-0.5">
-          {coreTools.map((tool) => (
-            <ToolButton
-              key={tool.id}
-              icon={tool.icon}
-              label={tool.label}
-              shortcut={tool.shortcut}
-              isActive={activeTool === tool.id}
-              onClick={() => handleToolChange(tool.id)}
-            />
-          ))}
-        </div>
+    <>
+      {/* Tool Settings Panel - appears above toolbar when draw tool is active */}
+      <ToolSettingsPanel activeTool={activeTool} />
 
-        <Separator orientation="vertical" className="h-6 mx-1" />
+      {/* Main Toolbar */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+        <div className="flex items-center gap-1 p-1.5 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-lg">
+          {/* Core Tools */}
+          <div className="flex items-center gap-0.5">
+            {coreTools.map((tool) => (
+              <ToolButton
+                key={tool.id}
+                icon={tool.icon}
+                label={tool.label}
+                shortcut={tool.shortcut}
+                isActive={activeTool === tool.id}
+                onClick={() => handleToolChange(tool.id)}
+              />
+            ))}
+          </div>
 
-        {/* Shape Tools */}
-        <div className="flex items-center gap-0.5">
-          {shapeTools.map((tool) => (
-            <ToolButton
-              key={tool.id}
-              icon={tool.icon}
-              label={tool.label}
-              shortcut={tool.shortcut}
-              isActive={activeTool === tool.id}
-              onClick={() => handleToolChange(tool.id)}
-            />
-          ))}
-        </div>
+          <Separator orientation="vertical" className="h-6 mx-1" />
 
-        <Separator orientation="vertical" className="h-6 mx-1" />
+          {/* Shape Tools */}
+          <div className="flex items-center gap-0.5">
+            {shapeTools.map((tool) => (
+              <ToolButton
+                key={tool.id}
+                icon={tool.icon}
+                label={tool.label}
+                shortcut={tool.shortcut}
+                isActive={activeTool === tool.id}
+                onClick={() => handleToolChange(tool.id)}
+              />
+            ))}
+          </div>
 
-        {/* Custom Tools */}
-        <div className="flex items-center gap-0.5">
-          {customTools.map((tool) => (
-            <ToolButton
-              key={tool.id}
-              icon={tool.icon}
-              label={tool.label}
-              shortcut={tool.shortcut}
-              isActive={activeTool === tool.id}
-              onClick={() => handleToolChange(tool.id)}
-            />
-          ))}
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
+          {/* Custom Tools */}
+          <div className="flex items-center gap-0.5">
+            {customTools.map((tool) => (
+              <ToolButton
+                key={tool.id}
+                icon={tool.icon}
+                label={tool.label}
+                shortcut={tool.shortcut}
+                isActive={activeTool === tool.id}
+                onClick={() => handleToolChange(tool.id)}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
