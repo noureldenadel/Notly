@@ -3,7 +3,6 @@ export { useProjectStore } from './projectStore';
 export { useCanvasStore } from './canvasStore';
 export { useCardStore } from './cardStore';
 export { useFileStore } from './fileStore';
-export { useTagStore } from './tagStore';
 export { useSearchStore } from './searchStore';
 export { useUIStore } from './uiStore';
 export { useSyncStore } from './syncStore';
@@ -17,8 +16,6 @@ export { useLinkStore, useLinksFrom, useBacklinks, extractWikiLinks, processWiki
 export type { Link as CardLink, LinkType } from './linkStore';
 export { useJournalStore, useCurrentJournalEntry, useJournalDate, getTodayDate, formatJournalDate } from './journalStore';
 export type { JournalEntry } from './journalStore';
-export { useVersionHistoryStore, useVersionsFor, formatVersionTime } from './versionHistoryStore';
-export type { Version } from './versionHistoryStore';
 
 
 // Type exports

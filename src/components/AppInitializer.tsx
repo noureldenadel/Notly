@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useProjectStore, useCardStore, useFileStore, useTagStore, useUIStore } from "@/stores";
+import { useProjectStore, useCardStore, useFileStore, useUIStore } from "@/stores";
 import { initPersistence } from "@/lib/persistence";
 import { setOpenPDFHandler } from "@/lib/pdfEvents";
 import { setOpenCardEditorHandler } from "@/lib/cardEvents";
@@ -18,9 +18,6 @@ export const AppInitializer = () => {
     const loadFiles = useFileStore(s => s.loadFiles);
     const filesLoaded = useFileStore(s => s.isLoaded);
 
-    const loadTags = useTagStore(s => s.loadTags);
-    const tagsLoaded = useTagStore(s => s.isLoaded);
-
     const openModal = useUIStore(s => s.openModal);
 
     const initialized = useRef(false);
@@ -37,7 +34,6 @@ export const AppInitializer = () => {
                 !projectsLoaded && loadProjects(),
                 !cardsLoaded && loadCards(),
                 !filesLoaded && loadFiles(),
-                !tagsLoaded && loadTags(),
             ]);
 
             // Validate that active project actually exists after loading
@@ -54,7 +50,7 @@ export const AppInitializer = () => {
             initialized.current = true;
         }
         initApp();
-    }, [loadProjects, loadCards, loadFiles, loadTags, projectsLoaded, cardsLoaded, filesLoaded, tagsLoaded]);
+    }, [loadProjects, loadCards, loadFiles, projectsLoaded, cardsLoaded, filesLoaded]);
 
     // Register Event Handlers
     useEffect(() => {

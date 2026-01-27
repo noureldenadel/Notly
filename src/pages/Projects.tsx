@@ -11,6 +11,7 @@ import {
     ChevronRight,
     Settings,
     MoreVertical,
+    Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { ImportExportModal } from "@/components/modals/ImportExportModal";
+import { ShortcutsCheatsheet } from "@/components/modals/ShortcutsCheatsheet";
 
 type SortOption = "lastViewed" | "name" | "created";
 type ViewMode = "grid" | "list";
@@ -43,7 +46,9 @@ const Projects = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
     const [settingsOpen, setSettingsOpen] = useState(false);
-
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    const [importExportOpen, setImportExportOpen] = useState(false);
+    const [importExportTab, setImportExportTab] = useState<'import' | 'export'>('import');
     // Get sidebar collapse state from UI store (persisted)
     const { leftSidebarCollapsed, toggleLeftSidebar } = useUIStore();
 
@@ -124,6 +129,17 @@ const Projects = () => {
             createBoard(newProject.id, "Main Board");
             toast({ title: "Project duplicated" });
         }
+    };
+
+    // Import/Export Handlers
+    const handleImport = () => {
+        setImportExportTab('import');
+        setImportExportOpen(true);
+    };
+
+    const handleExport = () => {
+        setImportExportTab('export');
+        setImportExportOpen(true);
     };
 
     // Delete project
@@ -245,7 +261,7 @@ const Projects = () => {
                             <Plus className="w-3 h-3" />
                             New project
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 px-2.5 gap-1 text-xs">
+                        <Button size="sm" variant="outline" className="h-7 px-2.5 gap-1 text-xs" onClick={handleImport}>
                             <Upload className="w-3 h-3" />
                             Import
                         </Button>
@@ -310,7 +326,7 @@ const Projects = () => {
 
                     {/* Projects Grid/List */}
                     {viewMode === "grid" ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                             {filteredProjects.map((project) => (
                                 <ProjectCard
                                     key={project.id}
@@ -415,6 +431,14 @@ const Projects = () => {
                                                 </DropdownMenuSubContent>
                                             </DropdownMenuSub>
                                             <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={handleImport}>
+                                                <Upload className="w-4 h-4 mr-2" />
+                                                Import
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={handleExport}>
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Export
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="text-destructive"
                                                 onClick={() => handleDelete(project.id, project.title)}
@@ -446,10 +470,19 @@ const Projects = () => {
                     )}
                 </div>
             </div>
-            {/* Settings Modal */}
+            {/* Modals */}
             <SettingsModal
                 open={settingsOpen}
                 onOpenChange={setSettingsOpen}
+            />
+            <ShortcutsCheatsheet
+                open={shortcutsOpen}
+                onOpenChange={setShortcutsOpen}
+            />
+            <ImportExportModal
+                open={importExportOpen}
+                onOpenChange={setImportExportOpen}
+                initialTab={importExportTab}
             />
         </div>
     );

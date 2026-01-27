@@ -45,6 +45,14 @@ export function TldrawWrapper({
             // Store editor reference in Zustand
             setEditorRef(editor);
 
+            // Set default font to 'sans' instead of 'draw'
+            editor.updateInstanceState({
+                stylesForNextShape: {
+                    ...editor.getInstanceState().stylesForNextShape,
+                    'tldraw:font': 'sans',
+                }
+            });
+
             // Load initial snapshot if provided
             if (initialSnapshot) {
                 try {

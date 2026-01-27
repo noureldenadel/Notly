@@ -42,11 +42,9 @@ function IndexContent() {
     // If not loaded yet, return empty to avoid flicker logic, though LoadingScreen handles this.
     if (!isLoaded) return [];
 
-    if (!activeProjectId) return [
-      { id: "main", name: "Main Canvas" },
-      { id: "research", name: "Research" },
-      { id: "planning", name: "Planning" },
-    ];
+    // If no active project, return empty (redirect will handle navigation)
+    if (!activeProjectId) return [];
+
     return allBoards
       .filter(b => b.projectId === activeProjectId)
       .sort((a, b) => a.position - b.position)
@@ -208,11 +206,9 @@ function IndexContent() {
             }}
             onBoardRename={(boardId, newName) => {
               updateBoard(boardId, { title: newName });
-              toast({ title: "Board Renamed", description: `Renamed to "${newName}"` });
             }}
             onBoardDelete={(boardId) => {
               deleteBoard(boardId);
-              toast({ title: "Board Deleted", description: "Board has been removed" });
             }}
             onBoardReorder={(newOrder) => {
               if (activeProjectId) reorderBoards(activeProjectId, newOrder);
@@ -223,7 +219,6 @@ function IndexContent() {
                 if (originalBoard) {
                   const newBoard = createBoard(activeProjectId, `${originalBoard.name} (Copy)`);
                   setActiveBoard(newBoard.id);
-                  toast({ title: "Board Duplicated", description: "Created a copy of the board" });
                 }
               }
             }}

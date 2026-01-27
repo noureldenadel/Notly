@@ -50,3 +50,10 @@ Keep as-is (won't work well but can fix later)
 --- -->
 
 
+Folders/Categories	Organize projects into folders	Medium
+Search Inside Canvas	Find shapes/cards by text content	Medium
+Export to Image/PDF	Export entire board as PNG/PDF	Medium
+Nested Boards	Sub-boards within boards	Low
+AI Integration	Smart content suggestions	Future
+
+test deploy

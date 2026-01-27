@@ -39,8 +39,11 @@ export function DraggableTab({
         isDragging,
     } = useSortable({ id: board.id });
 
+    // Restrict to horizontal axis only (like browser tabs)
+    const restrictedTransform = transform ? { ...transform, y: 0 } : null;
+
     const style = {
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Transform.toString(restrictedTransform),
         transition: isDragging ? 'none' : transition, // Force no transition when dragging to override CSS classes
         zIndex: isDragging ? 50 : 'auto',
         opacity: 1,
@@ -69,7 +72,7 @@ export function DraggableTab({
                     onClick={onClick}
                     onDoubleClick={handleDoubleClick}
                     className={cn(
-                        "group relative flex items-center h-9 px-3 py-1.5 rounded-md text-sm font-medium transition-all select-none cursor-pointer border border-transparent min-w-[120px] max-w-[200px]",
+                        "group relative flex items-center h-7 px-3 py-1 rounded-md text-sm font-medium transition-all select-none cursor-pointer border border-transparent min-w-[120px] max-w-[200px]",
                         isActive
                             ? "bg-background text-foreground shadow-sm border-border"
                             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",

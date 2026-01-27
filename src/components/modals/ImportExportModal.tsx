@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -38,6 +38,7 @@ import type { Card } from '@/stores/types';
 interface ImportExportModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    initialTab?: 'import' | 'export';
 }
 
 interface ImportedFile {
@@ -47,8 +48,14 @@ interface ImportedFile {
     error?: string;
 }
 
-export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps) {
-    const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
+export function ImportExportModal({ open, onOpenChange, initialTab = 'import' }: ImportExportModalProps) {
+    const [activeTab, setActiveTab] = useState<'import' | 'export'>(initialTab);
+
+    // Reset tab when opening
+    if (open && activeTab !== initialTab) {
+        // We use a ref or effect usually, but for simple modal logic:
+        // Actually, better to use useEffect to sync when open changes to true
+    }
     const [importing, setImporting] = useState(false);
     const [importProgress, setImportProgress] = useState(0);
     const [importedFiles, setImportedFiles] = useState<ImportedFile[]>([]);
@@ -57,6 +64,13 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
 
     const { cards, createCard } = useCardStore();
     const { addFile } = useFileStore();
+
+    // Sync active tab when modal opens
+    useEffect(() => {
+        if (open) {
+            setActiveTab(initialTab);
+        }
+    }, [open, initialTab]);
 
     // Handle file selection
     const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

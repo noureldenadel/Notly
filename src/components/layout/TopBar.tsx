@@ -241,8 +241,8 @@ export const TopBar = ({
                 strategy={horizontalListSortingStrategy}
               >
                 {boards.map((board) => (
-                  <div key={board.id} className="relative flex items-center group">
-                    {editingBoardId === board.id ? (
+                  editingBoardId === board.id ? (
+                    <div key={board.id} className="relative flex items-center group">
                       <input
                         ref={inputRef}
                         value={editText}
@@ -260,17 +260,18 @@ export const TopBar = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                       />
-                    ) : (
-                      <DraggableTab
-                        board={board}
-                        isActive={activeBoard === board.id}
-                        onClick={() => onBoardChange(board.id)}
-                        onRename={() => handleStartEdit(board.id, board.name)}
-                        onDelete={() => onBoardDelete?.(board.id)}
-                        onDuplicate={() => onBoardDuplicate?.(board.id)}
-                      />
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <DraggableTab
+                      key={board.id}
+                      board={board}
+                      isActive={activeBoard === board.id}
+                      onClick={() => onBoardChange(board.id)}
+                      onRename={() => handleStartEdit(board.id, board.name)}
+                      onDelete={() => onBoardDelete?.(board.id)}
+                      onDuplicate={() => onBoardDuplicate?.(board.id)}
+                    />
+                  )
                 ))}
               </SortableContext>
               <button
