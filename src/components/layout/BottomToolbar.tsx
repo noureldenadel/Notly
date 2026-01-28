@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   MousePointer2,
   Hand,
@@ -79,9 +80,14 @@ export const BottomToolbar = ({
   onInsertMindMap
 }: BottomToolbarProps) => {
   // Use props instead of hook to avoid context issues
+  const [drawToolClickCount, setDrawToolClickCount] = React.useState(0);
 
   // Handle tool change - sync with both local state and tldraw
   const handleToolChange = (toolId: string) => {
+    // Track draw tool clicks for settings panel visibility
+    if (toolId === 'draw') {
+      setDrawToolClickCount(prev => prev + 1);
+    }
     // Special handling for image - triggers file dialog instead of tool switch
     if (toolId === 'image') {
       onInsertImage();
@@ -136,11 +142,11 @@ export const BottomToolbar = ({
   return (
     <>
       {/* Tool Settings Panel - appears above toolbar when draw tool is active */}
-      <ToolSettingsPanel activeTool={activeTool} />
+      <ToolSettingsPanel activeTool={activeTool} drawToolClickCount={drawToolClickCount} />
 
       {/* Main Toolbar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
-        <div className="flex items-center gap-1 p-1.5 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-lg">
+        <div className="flex items-center gap-1 p-1.5 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)]">
           {/* Core Tools */}
           <div className="flex items-center gap-0.5">
             {coreTools.map((tool) => (

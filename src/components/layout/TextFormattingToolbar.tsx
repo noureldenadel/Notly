@@ -65,6 +65,12 @@ export const TextFormattingToolbar = () => {
         if (!editor) return;
 
         const updateToolbar = () => {
+            // Hide during interaction (moving/resizing)
+            if (editor.isIn('select.translating') || editor.isIn('select.resizing') || editor.isIn('select.brushing')) {
+                setIsVisible(false);
+                return;
+            }
+
             const selectedShapes = editor.getSelectedShapes();
 
             // Show for single text or note shape selection
@@ -96,15 +102,16 @@ export const TextFormattingToolbar = () => {
                 try {
                     const bounds = editor.getShapePageBounds(shape.id);
                     if (bounds) {
-                        const viewport = editor.getViewportScreenBounds();
-                        const zoom = editor.getZoomLevel();
+                        const camera = editor.getCamera();
+                        const zoom = camera.z;
 
-                        // Convert page coordinates to screen coordinates
-                        const screenX = (bounds.x - viewport.x) * zoom;
-                        const screenY = (bounds.y - viewport.y) * zoom;
+                        // Create a point in page space (top-left of shape)
+                        // Convert to page space including camera transform: (x + camera.x) * zoom
+                        const screenX = (bounds.x + camera.x) * zoom;
+                        const screenY = (bounds.y + camera.y) * zoom;
 
                         setPosition({
-                            top: screenY - 60, // 60px above the shape
+                            top: screenY - 44, // 4px above the shape
                             left: screenX + (bounds.width * zoom) / 2,
                         });
                     }
@@ -117,14 +124,25 @@ export const TextFormattingToolbar = () => {
         };
 
         // Update on selection change
+        // Update on selection change
         const unsubscribe = editor.store.listen(() => {
             updateToolbar();
         }, { scope: 'all' });
+
+        // Listen for pointer up to re-show toolbar after dragging
+        const handlePointerUp = () => {
+            // Small delay to allow state to settle back to idle
+            requestAnimationFrame(() => {
+                updateToolbar();
+            });
+        };
+        window.addEventListener('pointerup', handlePointerUp);
 
         updateToolbar();
 
         return () => {
             unsubscribe();
+            window.removeEventListener('pointerup', handlePointerUp);
         };
     }, [editor]);
 
@@ -219,156 +237,158 @@ export const TextFormattingToolbar = () => {
 
     return (
         <div
-            className="fixed z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className="fixed z-50"
             style={{
                 top: `${position.top}px`,
                 left: `${position.left}px`,
                 transform: 'translateX(-50%)',
             }}
         >
-            <div className="flex items-center gap-2 px-3 py-2 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-lg">
-                {/* Font Family */}
-                <Select value={selectedFont} onValueChange={handleFontChange}>
-                    <SelectTrigger className="w-[130px] h-8 text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FONTS.map((font) => (
-                            <SelectItem key={font.id} value={font.id} className="text-xs">
-                                {font.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {/* Font Size */}
-                <Select value={selectedSize} onValueChange={handleSizeChange}>
-                    <SelectTrigger className="w-[100px] h-8 text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FONT_SIZES.map((size) => (
-                            <SelectItem key={size.value} value={size.value} className="text-xs">
-                                {size.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {/* Separator */}
-                <div className="h-6 w-px bg-border" />
-
-                {/* Text Alignment */}
-                <div className="flex items-center gap-0.5">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    "w-8 h-8",
-                                    selectedTextAlign === 'start' && "bg-accent"
-                                )}
-                                onClick={() => handleTextAlignChange('start')}
-                            >
-                                <AlignLeft className="w-4 h-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><span className="text-xs">Align Left</span></TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    "w-8 h-8",
-                                    selectedTextAlign === 'middle' && "bg-accent"
-                                )}
-                                onClick={() => handleTextAlignChange('middle')}
-                            >
-                                <AlignCenter className="w-4 h-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><span className="text-xs">Align Center</span></TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    "w-8 h-8",
-                                    selectedTextAlign === 'end' && "bg-accent"
-                                )}
-                                onClick={() => handleTextAlignChange('end')}
-                            >
-                                <AlignRight className="w-4 h-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><span className="text-xs">Align Right</span></TooltipContent>
-                    </Tooltip>
-                </div>
-
-                {/* Separator */}
-                <div className="h-6 w-px bg-border" />
-
-                {/* Text Color Picker */}
-                <div className="flex items-center gap-1">
-                    <span className="text-[10px] uppercase text-muted-foreground mr-1">Text</span>
-                    {TEXT_COLORS.slice(0, 8).map((color) => (
-                        <Tooltip key={color.id}>
-                            <TooltipTrigger asChild>
-                                <button
-                                    onClick={() => handleTextColorChange(color.id)}
-                                    className={cn(
-                                        "w-5 h-5 rounded-full border transition-all hover:scale-110",
-                                        selectedTextColor === color.id
-                                            ? "border-primary ring-1 ring-primary"
-                                            : "border-transparent hover:border-muted-foreground/20"
-                                    )}
-                                    style={{ backgroundColor: color.value }}
-                                    aria-label={color.label}
-                                />
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                                <span className="text-xs">{color.label}</span>
-                            </TooltipContent>
-                        </Tooltip>
-                    ))}
-                </div>
-
-                {/* Fill Color Picker (Notes only) */}
-                {isNote && (
-                    <>
-                        <div className="h-6 w-px bg-border mx-1" />
-                        <div className="flex items-center gap-1">
-                            <span className="text-[10px] uppercase text-muted-foreground mr-1">Fill</span>
-                            {TEXT_COLORS.slice(0, 8).map((color) => (
-                                <Tooltip key={'fill-' + color.id}>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            onClick={() => handleFillColorChange(color.id)}
-                                            className={cn(
-                                                "w-5 h-5 rounded-sm border transition-all hover:scale-110",
-                                                selectedFillColor === color.id
-                                                    ? "border-primary ring-1 ring-primary"
-                                                    : "border-transparent hover:border-muted-foreground/20"
-                                            )}
-                                            style={{ backgroundColor: color.value }}
-                                            aria-label={color.label}
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top">
-                                        <span className="text-xs">{color.label}</span>
-                                    </TooltipContent>
-                                </Tooltip>
+            <div className="">
+                <div className="flex items-center gap-2 px-3 py-2 bg-card/95 backdrop-blur-md border border-border rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)]">
+                    {/* Font Family */}
+                    <Select value={selectedFont} onValueChange={handleFontChange}>
+                        <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FONTS.map((font) => (
+                                <SelectItem key={font.id} value={font.id} className="text-xs">
+                                    {font.label}
+                                </SelectItem>
                             ))}
-                        </div>
-                    </>
-                )}
+                        </SelectContent>
+                    </Select>
+
+                    {/* Font Size */}
+                    <Select value={selectedSize} onValueChange={handleSizeChange}>
+                        <SelectTrigger className="w-[100px] h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FONT_SIZES.map((size) => (
+                                <SelectItem key={size.value} value={size.value} className="text-xs">
+                                    {size.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    {/* Separator */}
+                    <div className="h-6 w-px bg-border" />
+
+                    {/* Text Alignment */}
+                    <div className="flex items-center gap-0.5">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "w-8 h-8",
+                                        selectedTextAlign === 'start' && "bg-accent"
+                                    )}
+                                    onClick={() => handleTextAlignChange('start')}
+                                >
+                                    <AlignLeft className="w-4 h-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><span className="text-xs">Align Left</span></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "w-8 h-8",
+                                        selectedTextAlign === 'middle' && "bg-accent"
+                                    )}
+                                    onClick={() => handleTextAlignChange('middle')}
+                                >
+                                    <AlignCenter className="w-4 h-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><span className="text-xs">Align Center</span></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                        "w-8 h-8",
+                                        selectedTextAlign === 'end' && "bg-accent"
+                                    )}
+                                    onClick={() => handleTextAlignChange('end')}
+                                >
+                                    <AlignRight className="w-4 h-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><span className="text-xs">Align Right</span></TooltipContent>
+                        </Tooltip>
+                    </div>
+
+                    {/* Separator */}
+                    <div className="h-6 w-px bg-border" />
+
+                    {/* Text Color Picker */}
+                    <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-muted-foreground mr-1">Text</span>
+                        {TEXT_COLORS.slice(0, 8).map((color) => (
+                            <Tooltip key={color.id}>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={() => handleTextColorChange(color.id)}
+                                        className={cn(
+                                            "w-5 h-5 rounded-full border transition-all hover:scale-110",
+                                            selectedTextColor === color.id
+                                                ? "border-primary ring-1 ring-primary"
+                                                : "border-transparent hover:border-muted-foreground/20"
+                                        )}
+                                        style={{ backgroundColor: color.value }}
+                                        aria-label={color.label}
+                                    />
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    <span className="text-xs">{color.label}</span>
+                                </TooltipContent>
+                            </Tooltip>
+                        ))}
+                    </div>
+
+                    {/* Fill Color Picker (Notes only) */}
+                    {isNote && (
+                        <>
+                            <div className="h-6 w-px bg-border mx-1" />
+                            <div className="flex items-center gap-1">
+                                <span className="text-[10px] uppercase text-muted-foreground mr-1">Fill</span>
+                                {TEXT_COLORS.slice(0, 8).map((color) => (
+                                    <Tooltip key={'fill-' + color.id}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                onClick={() => handleFillColorChange(color.id)}
+                                                className={cn(
+                                                    "w-5 h-5 rounded-sm border transition-all hover:scale-110",
+                                                    selectedFillColor === color.id
+                                                        ? "border-primary ring-1 ring-primary"
+                                                        : "border-transparent hover:border-muted-foreground/20"
+                                                )}
+                                                style={{ backgroundColor: color.value }}
+                                                aria-label={color.label}
+                                            />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                            <span className="text-xs">{color.label}</span>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );
