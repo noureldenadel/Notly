@@ -81,7 +81,8 @@ function IndexContent() {
     insertImage,
     insertPDF,
     insertCard,
-    insertMindMap
+    insertMindMap,
+    placementMode
   } = useEditor();
 
   // Set default font to Sans Serif
@@ -259,6 +260,7 @@ function IndexContent() {
                 onInsertPDF={insertPDF}
                 onInsertCard={insertCard}
                 onInsertMindMap={insertMindMap}
+                placementMode={placementMode}
               />
             </CanvasDropZone>
           </div>

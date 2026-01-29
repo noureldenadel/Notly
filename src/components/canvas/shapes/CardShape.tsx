@@ -85,15 +85,19 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                 style={{
                     width: shape.props.w,
                     height: shape.props.h,
-                    backgroundColor: `hsl(${hslColor} / 0.12)`,
-                    border: `2px solid hsl(${hslColor} / 0.25)`,
-                    borderRadius: '12px',
+                    backgroundColor: 'hsl(var(--card))', // Solid opaque background
+                    border: `1px solid hsl(var(--border))`, // First set base border
+                    borderTop: `3px solid hsl(${hslColor})`, // Then override top with accent
+                    borderTopWidth: '3px',
+                    borderRadius: '8px', // Slightly tighter radius
                     padding: '16px',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
-                    pointerEvents: 'all',
+                    pointerEvents: 'all', // Capture events ourselves
+                    userSelect: 'none',
                     cursor: 'pointer',
+                    boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04)', // Enhanced shadow
                 }}
                 onDoubleClick={handleDoubleClick}
             >
@@ -104,7 +108,7 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
                         alignItems: 'flex-start',
                         gap: '8px',
                         marginBottom: '8px',
-                        pointerEvents: 'none',
+                        pointerEvents: 'none', // Pass through
                     }}
                 >
                     <svg
@@ -212,8 +216,8 @@ export class CardShapeUtil extends BaseBoxShapeUtil<CardShape> {
         return;
     }
 
-    // Can the shape be edited
+    // Don't use Tldraw's internal edit mode - we open a modal instead
     override canEdit() {
-        return true;
+        return false;
     }
 }

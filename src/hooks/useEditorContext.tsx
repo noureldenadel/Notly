@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Editor, AssetRecordType } from 'tldraw';
 import { nanoid } from 'nanoid';
 import { useCardStore } from '@/stores';
@@ -34,6 +34,10 @@ interface EditorContextType {
     insertPDF: () => void;
     insertCard: () => void;
     insertMindMap: () => void;
+
+    // Placement mode (for toolbar active state)
+    placementMode: 'card' | 'mindmap' | null;
+    cancelPlacement: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -63,6 +67,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [placementMode, setPlacementMode] = useState<'card' | 'mindmap' | null>(null);
+    const placementCleanupRef = React.useRef<(() => void) | null>(null);
 
     const setEditor = useCallback((newEditor: Editor | null) => {
         setEditorState(newEditor);
@@ -282,7 +288,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         input.click();
     }, [editor]);
 
-    // Insert card at center of viewport
+    // Insert card with click-to-place
     const insertCard = useCallback(() => {
         log.debug('insertCard called, editor:', !!editor);
         if (!editor) {
@@ -290,32 +296,55 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Get center of viewport for placement
-        const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.CARD.WIDTH, SHAPE_DEFAULTS.CARD.HEIGHT);
+        // Set placement mode and cursor
+        setPlacementMode('card');
+        editor.setCursor({ type: 'cross', rotation: 0 });
 
-        // Create card in store (persists and indexes)
-        const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
+        // One-time pointer down handler
+        const onPointerDown = (info: any) => {
+            // Only handle left click on canvas
+            if (info.name === 'pointer_down' && info.button === 0) {
+                // Convert screen point to page coordinates (fixes zoom issue)
+                const screenPoint = editor.inputs.currentScreenPoint;
+                const pagePoint = editor.screenToPage(screenPoint);
 
-        // Create card shape on canvas
-        editor.createShape({
-            type: 'card',
-            x,
-            y,
-            props: {
-                w: SHAPE_DEFAULTS.CARD.WIDTH,
-                h: SHAPE_DEFAULTS.CARD.HEIGHT,
-                cardId: card.id,
-                title: card.title || 'New Card',
-                content: card.content,
-                color: card.color || COLORS.DEFAULT_CARD,
-                isEditing: false,
-            },
-        });
+                // Create card in store
+                const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
 
-        log.debug('Card created with ID:', card.id);
+                // Create card shape centered on click
+                editor.createShape({
+                    type: 'card',
+                    x: pagePoint.x - SHAPE_DEFAULTS.CARD.WIDTH / 2,
+                    y: pagePoint.y - SHAPE_DEFAULTS.CARD.HEIGHT / 2,
+                    props: {
+                        w: SHAPE_DEFAULTS.CARD.WIDTH,
+                        h: SHAPE_DEFAULTS.CARD.HEIGHT,
+                        cardId: card.id,
+                        title: card.title || 'New Card',
+                        content: card.content,
+                        color: card.color || COLORS.DEFAULT_CARD,
+                        isEditing: false,
+                    },
+                });
+
+                log.debug('Card created at page coords:', pagePoint.x, pagePoint.y);
+                cleanup();
+            }
+        };
+
+        const cleanup = () => {
+            editor.setCursor({ type: 'default', rotation: 0 });
+            editor.off('event', onPointerDown);
+            setPlacementMode(null);
+            placementCleanupRef.current = null;
+        };
+
+        // Store cleanup ref for cancel
+        placementCleanupRef.current = cleanup;
+        editor.on('event', onPointerDown);
     }, [editor]);
 
-    // Insert mind map at center of viewport
+    // Insert mind map with click-to-place
     const insertMindMap = useCallback(() => {
         log.debug('insertMindMap called, editor:', !!editor);
         if (!editor) {
@@ -323,25 +352,52 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Get center of viewport for placement
-        const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.MINDMAP.WIDTH, SHAPE_DEFAULTS.MINDMAP.HEIGHT);
+        // Set placement mode and cursor
+        setPlacementMode('mindmap');
+        editor.setCursor({ type: 'cross', rotation: 0 });
 
-        // Create mind map shape on canvas
-        editor.createShape({
-            type: 'mindmap',
-            x,
-            y,
-            props: {
-                w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
-                h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
-                rootNode: createDefaultMindMap('Main Topic'),
-                layout: 'horizontal',
-                theme: 'default',
-            },
-        });
+        const onPointerDown = (info: any) => {
+            if (info.name === 'pointer_down' && info.button === 0) {
+                // Convert screen point to page coordinates (fixes zoom issue)
+                const screenPoint = editor.inputs.currentScreenPoint;
+                const pagePoint = editor.screenToPage(screenPoint);
 
-        log.debug('Mind map created');
+                // Create mind map shape centered on click
+                editor.createShape({
+                    type: 'mindmap',
+                    x: pagePoint.x - SHAPE_DEFAULTS.MINDMAP.WIDTH / 2,
+                    y: pagePoint.y - SHAPE_DEFAULTS.MINDMAP.HEIGHT / 2,
+                    props: {
+                        w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
+                        h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
+                        rootNode: createDefaultMindMap('Main Topic'),
+                        layout: 'horizontal',
+                        theme: 'default',
+                    },
+                });
+
+                log.debug('Mind map created at page coords:', pagePoint.x, pagePoint.y);
+                cleanup();
+            }
+        };
+
+        const cleanup = () => {
+            editor.setCursor({ type: 'default', rotation: 0 });
+            editor.off('event', onPointerDown);
+            setPlacementMode(null);
+            placementCleanupRef.current = null;
+        };
+
+        placementCleanupRef.current = cleanup;
+        editor.on('event', onPointerDown);
     }, [editor]);
+
+    // Cancel placement mode
+    const cancelPlacement = useCallback(() => {
+        if (placementCleanupRef.current) {
+            placementCleanupRef.current();
+        }
+    }, []);
 
     const undo = useCallback(() => {
         if (editor?.getCanUndo()) {
@@ -394,6 +450,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 insertPDF,
                 insertCard,
                 insertMindMap,
+                placementMode,
+                cancelPlacement,
             }}
         >
             {children}

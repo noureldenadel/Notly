@@ -27,6 +27,8 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ProjectCard, getColorHex, PROJECT_COLORS } from "@/components/projects/ProjectCard";
+import { ProjectActionsMenu } from "@/components/projects/ProjectActionsMenu";
+
 import { useProjectStore } from "@/stores/projectStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
@@ -339,6 +341,7 @@ const Projects = () => {
                                     onRename={(newName) => handleRename(project.id, newName)}
                                     onDuplicate={() => handleDuplicate(project.id)}
                                     onDelete={() => handleDelete(project.id, project.title)}
+                                    onExport={handleExport}
                                     onChangeColor={(color) => updateProject(project.id, { color })}
                                 />
                             ))}
@@ -390,63 +393,19 @@ const Projects = () => {
 
                                     <span className="text-sm text-muted-foreground">{formatTimeAgo(project.updatedAt)}</span>
 
-                                    {/* 3-dot menu */}
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                                            >
-                                                <MoreVertical className="w-3.5 h-3.5" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => {
-                                                setEditName(project.title);
-                                                setEditingId(project.id);
-                                            }}>
-                                                Rename
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDuplicate(project.id)}>
-                                                Duplicate
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSub>
-                                                <DropdownMenuSubTrigger>Color</DropdownMenuSubTrigger>
-                                                <DropdownMenuSubContent>
-                                                    <div className="flex gap-1.5 p-2">
-                                                        {PROJECT_COLORS.map((c) => (
-                                                            <button
-                                                                key={c.value}
-                                                                onClick={() => updateProject(project.id, { color: c.value })}
-                                                                className={cn(
-                                                                    "w-6 h-6 rounded-full transition-transform hover:scale-110",
-                                                                    project.color?.includes(c.value) && "ring-2 ring-offset-2 ring-primary"
-                                                                )}
-                                                                style={{ backgroundColor: c.hex }}
-                                                                title={c.name}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </DropdownMenuSubContent>
-                                            </DropdownMenuSub>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={handleImport}>
-                                                <Upload className="w-4 h-4 mr-2" />
-                                                Import
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={handleExport}>
-                                                <Download className="w-4 h-4 mr-2" />
-                                                Export
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                className="text-destructive"
-                                                onClick={() => handleDelete(project.id, project.title)}
-                                            >
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    {/* Shared Project Actions Menu */}
+                                    <ProjectActionsMenu
+                                        onRename={() => {
+                                            setEditName(project.title);
+                                            setEditingId(project.id);
+                                        }}
+                                        onDuplicate={() => handleDuplicate(project.id)}
+                                        onDelete={() => handleDelete(project.id, project.title)}
+                                        onExport={handleExport}
+                                        onChangeColor={(color) => updateProject(project.id, { color })}
+                                        currentColor={project.color}
+                                        triggerClassName="opacity-0 group-hover:opacity-100"
+                                    />
                                 </div>
                             ))}
                         </div>

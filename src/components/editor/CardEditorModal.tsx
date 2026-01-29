@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TipTapEditor } from './TipTapEditor';
 import { useCardStore } from '@/stores';
-import { X, Maximize2, Minimize2, Trash2, Palette } from 'lucide-react';
+import { X, Maximize2, Minimize2, Palette } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,7 +23,7 @@ interface CardEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave?: (cardId: string) => void;
-    onDelete?: (cardId: string) => void;
+
 }
 
 const CARD_COLORS = [
@@ -39,9 +39,8 @@ export function CardEditorModal({
     isOpen,
     onClose,
     onSave,
-    onDelete,
 }: CardEditorModalProps) {
-    const { getCard, updateCard, deleteCard } = useCardStore();
+    const { getCard, updateCard } = useCardStore();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [color, setColor] = useState('highlight-blue');
@@ -72,16 +71,7 @@ export function CardEditorModal({
         onSave?.(cardId);
     }, [cardId, title, content, color, updateCard, onSave]);
 
-    // Handle delete
-    const handleDelete = useCallback(() => {
-        if (!cardId) return;
 
-        if (window.confirm('Are you sure you want to delete this card?')) {
-            deleteCard(cardId);
-            onDelete?.(cardId);
-            onClose();
-        }
-    }, [cardId, deleteCard, onDelete, onClose]);
 
     // Auto-save on content change (debounced effect in production)
     const handleContentChange = useCallback((newContent: string) => {
@@ -110,7 +100,7 @@ export function CardEditorModal({
                     'flex flex-col',
                     isFullscreen
                         ? 'max-w-[100vw] w-screen h-screen max-h-screen m-0 rounded-none'
-                        : 'max-w-2xl w-full max-h-[80vh]'
+                        : 'max-w-5xl w-full h-[80vh]' // Wider and Taller
                 )}
             >
                 <DialogHeader className="flex-shrink-0">
@@ -173,15 +163,7 @@ export function CardEditorModal({
                                 )}
                             </Button>
 
-                            {/* Delete */}
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="w-8 h-8 text-destructive hover:text-destructive"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+
 
                             {/* Close */}
                             <Button

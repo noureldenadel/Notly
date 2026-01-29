@@ -68,6 +68,8 @@ interface BottomToolbarProps {
   onInsertPDF: () => void;
   onInsertCard: () => void;
   onInsertMindMap: () => void;
+  // Placement mode for active state
+  placementMode?: 'card' | 'mindmap' | null;
 }
 
 export const BottomToolbar = ({
@@ -77,7 +79,8 @@ export const BottomToolbar = ({
   onInsertImage,
   onInsertPDF,
   onInsertCard,
-  onInsertMindMap
+  onInsertMindMap,
+  placementMode
 }: BottomToolbarProps) => {
   // Use props instead of hook to avoid context issues
   const [drawToolClickCount, setDrawToolClickCount] = React.useState(0);
@@ -187,7 +190,7 @@ export const BottomToolbar = ({
                 icon={tool.icon}
                 label={tool.label}
                 shortcut={tool.shortcut}
-                isActive={activeTool === tool.id}
+                isActive={activeTool === tool.id || (tool.id === 'card' && placementMode === 'card') || (tool.id === 'mindmap' && placementMode === 'mindmap')}
                 onClick={() => handleToolChange(tool.id)}
               />
             ))}

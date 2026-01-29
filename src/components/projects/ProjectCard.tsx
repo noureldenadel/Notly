@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { MoreVertical } from "lucide-react";
+import { ProjectActionsMenu } from "./ProjectActionsMenu";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,7 @@ interface ProjectCardProps {
     onRename?: (newName: string) => void;
     onDuplicate?: () => void;
     onDelete?: () => void;
+    onExport?: () => void;
     onChangeColor?: (color: string) => void;
 }
 
@@ -53,6 +56,7 @@ export const ProjectCard = ({
     onRename,
     onDuplicate,
     onDelete,
+    onExport,
     onChangeColor,
 }: ProjectCardProps) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -143,46 +147,16 @@ export const ProjectCard = ({
                     <span className="text-sm font-medium truncate flex-1">{name}</span>
                 )}
 
-                {/* 3-dot menu */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <MoreVertical className="w-3.5 h-3.5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem onClick={handleStartRename}>Rename</DropdownMenuItem>
-                        <DropdownMenuItem onClick={onDuplicate}>Duplicate</DropdownMenuItem>
-                        <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>
-                                Color
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                                <div className="flex gap-1.5 p-2">
-                                    {PROJECT_COLORS.map((c) => (
-                                        <button
-                                            key={c.value}
-                                            onClick={() => onChangeColor?.(c.value)}
-                                            className={cn(
-                                                "w-6 h-6 rounded-full transition-transform hover:scale-110",
-                                                color?.includes(c.value) && "ring-2 ring-offset-2 ring-primary"
-                                            )}
-                                            style={{ backgroundColor: c.hex }}
-                                            title={c.name}
-                                        />
-                                    ))}
-                                </div>
-                            </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={onDelete}>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Shared Project Actions Menu */}
+                <ProjectActionsMenu
+                    onRename={handleStartRename}
+                    onDuplicate={onDuplicate!}
+                    onDelete={onDelete!}
+                    onExport={onExport!}
+                    onChangeColor={onChangeColor!}
+                    currentColor={color}
+                    triggerClassName="opacity-0 group-hover:opacity-100"
+                />
             </div>
             {lastViewed && (
                 <p className="text-xs text-muted-foreground mt-0.5 ml-4">{lastViewed}</p>

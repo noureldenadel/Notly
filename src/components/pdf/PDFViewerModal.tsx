@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,8 +24,13 @@ import {
   RotateCw,
   Maximize2,
   X,
+  Underline,
+  StickyNote,
+  Eraser
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -39,14 +45,24 @@ interface PDFViewerModalProps {
   fileName?: string;
 }
 
-type AnnotationTool = "highlight" | "underline" | "comment" | "draw" | "text" | null;
+type AnnotationTool = "highlight" | "underline" | "comment" | "draw" | "text" | "note" | "erase" | null;
 
 const annotationColors = [
-  { name: "Yellow", value: "hsl(45 93% 65%)" },
-  { name: "Green", value: "hsl(150 70% 50%)" },
-  { name: "Blue", value: "hsl(210 90% 65%)" },
-  { name: "Pink", value: "hsl(330 80% 65%)" },
-  { name: "Purple", value: "hsl(270 70% 65%)" },
+  { name: "Yellow", value: "hsl(45 93% 65%)", class: "bg-yellow-400" },
+  { name: "Green", value: "hsl(150 70% 50%)", class: "bg-green-400" },
+  { name: "Blue", value: "hsl(210 90% 65%)", class: "bg-blue-400" },
+  { name: "Pink", value: "hsl(330 80% 65%)", class: "bg-pink-400" },
+  { name: "Purple", value: "hsl(270 70% 65%)", class: "bg-purple-400" },
+];
+
+const tools = [
+  { id: "highlight" as const, icon: Highlighter, label: "Highlight", shortcut: "H" },
+  { id: "underline" as const, icon: Underline, label: "Underline", shortcut: "U" },
+  { id: "comment" as const, icon: MessageSquare, label: "Comment", shortcut: "C" },
+  { id: "note" as const, icon: StickyNote, label: "Note", shortcut: "N" },
+  { id: "draw" as const, icon: Pencil, label: "Draw", shortcut: "D" },
+  { id: "text" as const, icon: Type, label: "Text", shortcut: "T" },
+  { id: "erase" as const, icon: Eraser, label: "Eraser", shortcut: "E" },
 ];
 
 export const PDFViewerModal = ({
@@ -61,7 +77,10 @@ export const PDFViewerModal = ({
   const [rotation, setRotation] = useState(0);
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [activeColor, setActiveColor] = useState(annotationColors[0].value);
+  const [strokeWidth, setStrokeWidth] = useState([2]);
+  const [opacity, setOpacity] = useState([100]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [toolPopoverOpen, setToolPopoverOpen] = useState(false);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -87,51 +106,55 @@ export const PDFViewerModal = ({
     setRotation((prev) => (prev + 90) % 360);
   };
 
-  const tools = [
-    { id: "highlight" as const, icon: Highlighter, label: "Highlight" },
-    { id: "underline" as const, icon: Type, label: "Underline" },
-    { id: "comment" as const, icon: MessageSquare, label: "Comment" },
-    { id: "draw" as const, icon: Pencil, label: "Draw" },
-    { id: "text" as const, icon: Type, label: "Text" },
-  ];
+  const handleToolSelect = (toolId: AnnotationTool) => {
+    if (activeTool === toolId) {
+      setToolPopoverOpen((prev) => !prev);
+    } else {
+      setActiveTool(toolId);
+      setToolPopoverOpen(true);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
-          "p-0 gap-0 bg-background border-border overflow-hidden",
-          isFullscreen
-            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
-            : "max-w-5xl w-[90vw] h-[85vh] max-h-[85vh]"
+          "flex flex-col max-w-5xl w-[90vw] h-[85vh] max-h-[85vh] p-0 gap-0 bg-background border-border overflow-hidden",
+          isFullscreen && "max-w-[100vw] w-screen h-screen max-h-screen rounded-none border-none"
         )}
       >
         {/* Header */}
-        <DialogHeader className="px-4 py-3 border-b border-border flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-sm font-medium truncate max-w-[300px]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <h2 className="text-sm font-medium truncate max-w-[300px]">
               {fileName}
-            </DialogTitle>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Download className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Bookmark className="h-4 w-4" />
-              </Button>
-            </div>
+            </h2>
           </div>
-        </DialogHeader>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
         <div className="flex flex-1 min-h-0">
-          {/* Page Thumbnails - Left Side */}
+          {/* Page Thumbnails - Left Side - ORIGINAL */}
           <div className="w-32 border-r border-border bg-muted/20 flex-shrink-0 flex flex-col">
             <div className="px-3 py-2 border-b border-border">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pages</span>
@@ -182,7 +205,7 @@ export const PDFViewerModal = ({
             </ScrollArea>
           </div>
 
-          {/* Main PDF View */}
+          {/* Main PDF View - ORIGINAL */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* PDF Viewer */}
             <ScrollArea className="flex-1">
@@ -230,184 +253,166 @@ export const PDFViewerModal = ({
               </div>
             </ScrollArea>
 
-            {/* Bottom Controls */}
-            <div className="border-t border-border px-4 py-2.5 flex items-center justify-between bg-muted/30 flex-shrink-0">
-              {/* Page Navigation */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={goToPrevPage}
-                  disabled={currentPage <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground min-w-[80px] text-center">
-                  {currentPage} / {numPages || "—"}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={goToNextPage}
-                  disabled={currentPage >= numPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+            {/* Bottom Controls - Centered & Styled */}
+            <div className="border-t border-border px-4 py-2 flex items-center justify-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0 z-20">
+              <div className="flex items-center gap-6">
 
-              {/* Zoom & Rotate Controls */}
-              <div className="flex items-center gap-1">
+                {/* Page Navigation */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={goToPrevPage}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground tabular-nums min-w-[50px] text-center">
+                    {currentPage} / {numPages || "—"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={goToNextPage}
+                    disabled={currentPage >= numPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="h-4 w-[1px] bg-border" />
+
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={zoomOut}
+                    disabled={scale <= 0.5}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground tabular-nums min-w-[3rem] text-center">
+                    {Math.round(scale * 100)}%
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={zoomIn}
+                    disabled={scale >= 3}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="h-4 w-[1px] bg-border" />
+
+                {/* Rotate Control */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
-                  onClick={zoomOut}
-                  disabled={scale <= 0.5}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground min-w-[50px] text-center">
-                  {Math.round(scale * 100)}%
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={zoomIn}
-                  disabled={scale >= 3}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Separator orientation="vertical" className="h-5 mx-2" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
                   onClick={rotate}
                 >
                   <RotateCw className="h-4 w-4" />
                 </Button>
-              </div>
 
-              {/* Active Tool Indicator */}
-              <div className="flex items-center gap-2 min-w-[120px] justify-end">
-                {activeTool && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: activeColor }}
-                    />
-                    <span className="text-xs font-medium text-primary capitalize">
-                      {activeTool}
-                    </span>
-                    <button
-                      onClick={() => setActiveTool(null)}
-                      className="text-primary hover:text-primary/80"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Annotation Tools - Right Side */}
-          <div className="w-56 border-l border-border bg-muted/20 flex-shrink-0 flex flex-col">
-            <div className="px-3 py-2 border-b border-border">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Annotations</span>
-            </div>
-            
-            <ScrollArea className="flex-1">
-              <div className="p-3 space-y-4">
-                {/* Annotation Tools */}
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-muted-foreground">Tools</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {tools.map((tool) => (
-                      <Button
-                        key={tool.id}
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          "h-auto py-3 px-2 flex flex-col items-center gap-1.5 rounded-lg transition-all",
-                          activeTool === tool.id
-                            ? "bg-primary/15 text-primary border border-primary/30"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+          {/* Right Sidebar - Vertical Tools - NEW */}
+          <TooltipProvider delayDuration={0}>
+            <div className="w-[56px] border-l border-border bg-muted/10 flex flex-col items-center py-4 z-10 transition-all">
+              <div className="flex flex-col gap-2">
+                {tools.map((tool) => (
+                  <Popover
+                    key={tool.id}
+                    open={activeTool === tool.id && toolPopoverOpen}
+                    onOpenChange={(open) => {
+                      if (!open) setToolPopoverOpen(false);
+                    }}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-10 w-10 rounded-xl transition-all duration-200",
+                              activeTool === tool.id
+                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                            )}
+                            onClick={() => handleToolSelect(tool.id)}
+                          >
+                            <tool.icon className="h-5 w-5" />
+                          </Button>
+                        </PopoverTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="flex items-center gap-2">
+                        {tool.label} <kbd className="text-[9px] bg-muted/20 px-1 rounded ml-1">{tool.shortcut}</kbd>
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <PopoverContent side="left" align="start" className="w-[220px] p-3 mx-2" sideOffset={10}>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-2">
+                          <span className="text-sm font-semibold">{tool.label}</span>
+                          <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{tool.shortcut}</kbd>
+                        </div>
+
+                        {/* Color Selection */}
+                        <div className="space-y-2">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</span>
+                          <div className="flex flex-wrap gap-2">
+                            {annotationColors.map((color) => (
+                              <button
+                                key={color.name}
+                                className={cn(
+                                  "w-6 h-6 rounded-full border-2 transition-all",
+                                  activeColor === color.value ? "border-foreground scale-110" : "border-transparent hover:scale-105"
+                                )}
+                                style={{ backgroundColor: color.value }}
+                                onClick={() => setActiveColor(color.value)}
+                                title={color.name}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Stroke/Opacity sliders (common for most tools) */}
+                        {tool.id !== 'text' && tool.id !== 'note' && (
+                          <div className="space-y-3">
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Stroke</span>
+                                <span className="font-mono">{strokeWidth[0]}px</span>
+                              </div>
+                              <Slider value={strokeWidth} onValueChange={setStrokeWidth} min={1} max={20} step={1} />
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Opacity</span>
+                                <span className="font-mono">{opacity[0]}%</span>
+                              </div>
+                              <Slider value={opacity} onValueChange={setOpacity} min={10} max={100} step={10} />
+                            </div>
+                          </div>
                         )}
-                        onClick={() =>
-                          setActiveTool(activeTool === tool.id ? null : tool.id)
-                        }
-                      >
-                        <tool.icon className="h-4 w-4" />
-                        <span className="text-[10px] font-medium">{tool.label}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Color Picker */}
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-muted-foreground">Color</span>
-                  <div className="flex flex-wrap gap-2">
-                    {annotationColors.map((color) => (
-                      <button
-                        key={color.name}
-                        className={cn(
-                          "w-8 h-8 rounded-lg transition-all border-2 flex items-center justify-center",
-                          activeColor === color.value
-                            ? "border-foreground scale-105 shadow-md"
-                            : "border-transparent hover:scale-105 hover:shadow-sm"
-                        )}
-                        style={{ backgroundColor: color.value }}
-                        onClick={() => setActiveColor(color.value)}
-                        title={color.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Quick Actions */}
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-muted-foreground">Quick Actions</span>
-                  <div className="space-y-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-muted-foreground hover:text-foreground"
-                    >
-                      <Bookmark className="h-4 w-4 mr-2" />
-                      <span className="text-xs">Add Bookmark</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-muted-foreground hover:text-foreground"
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      <span className="text-xs">Add Note</span>
-                    </Button>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Annotations List */}
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-muted-foreground">Recent Annotations</span>
-                  <div className="text-xs text-muted-foreground/60 text-center py-4 border border-dashed border-border rounded-lg">
-                    No annotations yet
-                  </div>
-                </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ))}
               </div>
-            </ScrollArea>
-          </div>
+            </div>
+          </TooltipProvider>
+
         </div>
       </DialogContent>
     </Dialog>

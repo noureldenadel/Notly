@@ -472,13 +472,14 @@ export class MindMapShapeUtil extends BaseBoxShapeUtil<MindMapShape> {
                 style={{
                     width: w,
                     height: h,
-                    backgroundColor: 'hsl(var(--background) / 0.5)',
-                    border: '2px solid hsl(var(--border))',
+                    backgroundColor: 'hsl(var(--background))', // Solid opaque background
+                    border: '1px solid hsl(var(--border))',
                     borderRadius: '16px',
                     padding: '40px',
                     pointerEvents: 'all',
                     // overflow: 'auto', // Disable scroll since we auto-fit
                     overflow: 'hidden',
+                    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)', // Soft, modern shadow
                 }}
             >
                 <div
