@@ -1,14 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import {
   ChevronLeft,
@@ -16,28 +13,29 @@ import {
   ZoomIn,
   ZoomOut,
   Highlighter,
-  MessageSquare,
   Pencil,
   Type,
-  Bookmark,
   Download,
   RotateCw,
   Maximize2,
   X,
-  Underline,
-  StickyNote,
-  Eraser
+  Eraser,
+  Eye,
+  EyeOff,
+  MousePointer2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PDFAnnotationLayer, AnnotationPath, TextAnnotation } from "./PDFAnnotationLayer";
 
-// Set up PDF.js worker
+// ... (pdfjs worker setup stays same)
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
+// ... (interfaces stay same)
 interface PDFViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -45,21 +43,19 @@ interface PDFViewerModalProps {
   fileName?: string;
 }
 
-type AnnotationTool = "highlight" | "underline" | "comment" | "draw" | "text" | "note" | "erase" | null;
+type AnnotationTool = "highlight" | "draw" | "text" | "erase" | "select" | null;
 
 const annotationColors = [
-  { name: "Yellow", value: "hsl(45 93% 65%)", class: "bg-yellow-400" },
-  { name: "Green", value: "hsl(150 70% 50%)", class: "bg-green-400" },
-  { name: "Blue", value: "hsl(210 90% 65%)", class: "bg-blue-400" },
-  { name: "Pink", value: "hsl(330 80% 65%)", class: "bg-pink-400" },
-  { name: "Purple", value: "hsl(270 70% 65%)", class: "bg-purple-400" },
+  { name: "Yellow", value: "#fde047", class: "bg-yellow-300" }, // Highlighter Yellow
+  { name: "Green", value: "#4ade80", class: "bg-green-400" },
+  { name: "Blue", value: "#60a5fa", class: "bg-blue-400" },
+  { name: "Red", value: "#f87171", class: "bg-red-400" },
+  { name: "Black", value: "#000000", class: "bg-black" },
 ];
 
 const tools = [
+  { id: "select" as const, icon: MousePointer2, label: "Select & Move", shortcut: "V" },
   { id: "highlight" as const, icon: Highlighter, label: "Highlight", shortcut: "H" },
-  { id: "underline" as const, icon: Underline, label: "Underline", shortcut: "U" },
-  { id: "comment" as const, icon: MessageSquare, label: "Comment", shortcut: "C" },
-  { id: "note" as const, icon: StickyNote, label: "Note", shortcut: "N" },
   { id: "draw" as const, icon: Pencil, label: "Draw", shortcut: "D" },
   { id: "text" as const, icon: Type, label: "Text", shortcut: "T" },
   { id: "erase" as const, icon: Eraser, label: "Eraser", shortcut: "E" },
@@ -75,12 +71,53 @@ export const PDFViewerModal = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
+  const [pageDimensions, setPageDimensions] = useState({ width: 595, height: 842 }); // Default A4, updated on load
+
+  // Annotation State
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
   const [activeColor, setActiveColor] = useState(annotationColors[0].value);
-  const [strokeWidth, setStrokeWidth] = useState([2]);
-  const [opacity, setOpacity] = useState([100]);
+  const [strokeWidth, setStrokeWidth] = useState([2]); // For Highlight this should be larger default?
+  const [opacity, setOpacity] = useState([100]); // Highlight logic handles opacity internally usually
+
+  const [paths, setPaths] = useState<AnnotationPath[]>([]);
+  const [texts, setTexts] = useState<TextAnnotation[]>([]);
+  const [showAnnotations, setShowAnnotations] = useState(true);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [toolPopoverOpen, setToolPopoverOpen] = useState(false);
+
+  // Dynamic default settings when tool changes
+  const handleToolSelect = (toolId: AnnotationTool) => {
+    if (activeTool === toolId) {
+      // Toggle off if clicking same tool? Or just open popover?
+      // Let's just open/close popover for refinement
+      if (toolPopoverOpen) {
+        setToolPopoverOpen(false);
+        // Optional: Deselect tool? setActiveTool(null);
+      } else {
+        setToolPopoverOpen(true);
+      }
+    } else {
+      setActiveTool(toolId);
+      setToolPopoverOpen(true);
+
+      // Set sane defaults
+      if (toolId === 'highlight') {
+        setStrokeWidth([20]); // Thick marker
+        setOpacity([50]); // Translucent
+        if (activeColor === '#000000') setActiveColor('#fde047'); // Yellow default
+      } else if (toolId === 'draw') {
+        setStrokeWidth([2]); // Thin pen
+        setOpacity([100]); // Opaque
+        setActiveColor('#000000'); // Black default
+      } else if (toolId === 'text') {
+        setStrokeWidth([3]); // Acts as Font Size (x5) -> 15px
+        setActiveColor('#000000');
+      } else if (toolId === 'erase') {
+        setStrokeWidth([20]); // Big eraser
+      }
+    }
+  };
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -94,26 +131,9 @@ export const PDFViewerModal = ({
     setCurrentPage((prev) => Math.min(prev + 1, numPages));
   };
 
-  const zoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.25, 3));
-  };
-
-  const zoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.25, 0.5));
-  };
-
-  const rotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
-  };
-
-  const handleToolSelect = (toolId: AnnotationTool) => {
-    if (activeTool === toolId) {
-      setToolPopoverOpen((prev) => !prev);
-    } else {
-      setActiveTool(toolId);
-      setToolPopoverOpen(true);
-    }
-  };
+  const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3));
+  const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
+  const rotate = () => setRotation((prev) => (prev + 90) % 360);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -139,9 +159,6 @@ export const PDFViewerModal = ({
             >
               <Maximize2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <Download className="h-4 w-4" />
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -154,260 +171,250 @@ export const PDFViewerModal = ({
         </div>
 
         <div className="flex flex-1 min-h-0">
-          {/* Page Thumbnails - Left Side - ORIGINAL */}
-          <div className="w-32 border-r border-border bg-muted/20 flex-shrink-0 flex flex-col">
-            <div className="px-3 py-2 border-b border-border">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pages</span>
+          {/* Left Sidebar - Thumbnails */}
+          <div className="w-48 border-r border-border bg-muted/5 flex flex-col hidden md:flex">
+            <div className="p-3 border-b border-border text-xs font-semibold text-muted-foreground">
+              Pages ({numPages})
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-2">
-                {numPages > 0 ? (
-                  Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
+              <div className="p-3 space-y-3">
+                {/* Single Document for all thumbnails - avoids loading PDF multiple times */}
+                <Document file={pdfUrl} className="contents">
+                  {Array.from(new Array(numPages), (el, index) => (
                     <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
+                      key={`page_${index + 1}`}
+                      onClick={() => setCurrentPage(index + 1)}
                       className={cn(
-                        "w-full rounded-lg border-2 transition-all overflow-hidden",
-                        currentPage === pageNum
-                          ? "border-primary ring-2 ring-primary/20"
-                          : "border-border hover:border-primary/50"
+                        "w-full flex flex-col items-center gap-2 p-2 rounded-lg transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        currentPage === index + 1 ? "bg-background text-primary shadow-sm ring-1 ring-border" : "hover:bg-background/50 text-muted-foreground"
                       )}
                     >
-                      <div className="bg-card p-1">
-                        <Document file={pdfUrl} loading={null} error={null}>
-                          <Page
-                            pageNumber={pageNum}
-                            width={100}
-                            renderTextLayer={false}
-                            renderAnnotationLayer={false}
-                            className="pointer-events-none"
-                          />
-                        </Document>
+                      <div className={cn("relative w-full aspect-[1/1.414] bg-background rounded border shadow-sm overflow-hidden pointer-events-none", currentPage === index + 1 ? "border-primary/50" : "border-border")}>
+                        <Page
+                          pageNumber={index + 1}
+                          width={120}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          loading={<div className="w-full h-full bg-muted animate-pulse" />}
+                        />
                       </div>
-                      <div className={cn(
-                        "text-xs py-1 text-center",
-                        currentPage === pageNum
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "bg-muted/50 text-muted-foreground"
-                      )}>
-                        {pageNum}
-                      </div>
+                      <span className="text-xs font-medium">Page {index + 1}</span>
                     </button>
-                  ))
-                ) : (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((n) => (
-                      <div key={n} className="w-full aspect-[3/4] rounded-lg bg-muted/50 animate-pulse" />
-                    ))}
-                  </div>
-                )}
+                  ))}
+                </Document>
               </div>
             </ScrollArea>
           </div>
 
-          {/* Main PDF View - ORIGINAL */}
-          <div className="flex-1 flex flex-col min-w-0">
+          {/* Main PDF View */}
+          <div className="flex-1 flex flex-col min-w-0 bg-muted/10 relative">
             {/* PDF Viewer */}
             <ScrollArea className="flex-1">
               <div className="flex items-center justify-center p-6 min-h-full">
                 <Document
                   file={pdfUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
-                  loading={
-                    <div className="flex items-center justify-center h-96">
-                      <div className="text-muted-foreground text-sm">
-                        Loading PDF...
-                      </div>
-                    </div>
-                  }
-                  error={
-                    <div className="flex flex-col items-center justify-center h-96 gap-3">
-                      <div className="text-muted-foreground text-sm">
-                        Failed to load PDF
-                      </div>
-                      <p className="text-xs text-muted-foreground/60">
-                        Make sure the PDF file exists at: {pdfUrl}
-                      </p>
-                    </div>
-                  }
-                  noData={
-                    <div className="flex flex-col items-center justify-center h-96 gap-3">
-                      <div className="w-16 h-20 bg-muted/50 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                        <span className="text-muted-foreground text-xs">PDF</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        No PDF file selected
-                      </p>
-                    </div>
-                  }
+                  loading={<div className="h-96 flex items-center justify-center text-muted-foreground">Loading PDF...</div>}
                 >
-                  <Page
-                    pageNumber={currentPage}
-                    scale={scale}
-                    rotate={rotation}
-                    className="shadow-lg rounded-sm overflow-hidden"
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                  />
+                  <div className="relative shadow-lg rounded-sm overflow-hidden" style={{ transform: `rotate(${rotation}deg)` }}>
+                    <Page
+                      pageNumber={currentPage}
+                      scale={scale}
+                      rotate={0}
+                      className="block"
+                      renderTextLayer={true}
+                      renderAnnotationLayer={false}
+                      onRenderSuccess={(page) => {
+                        // Capture actual page dimensions for annotation layer
+                        setPageDimensions({ width: page.width, height: page.height });
+                      }}
+                    />
+                    {/* Overlay */}
+                    <PDFAnnotationLayer
+                      width={pageDimensions.width * scale}
+                      height={pageDimensions.height * scale}
+                      scale={scale}
+                      page={currentPage}
+                      tool={activeTool}
+                      activeColor={activeColor}
+                      strokeWidth={strokeWidth[0]}
+                      opacity={opacity[0]}
+                      visible={showAnnotations}
+                      annotations={{ paths, texts }}
+                      onAnnotationsChange={(newPaths, newTexts) => {
+                        setPaths(newPaths);
+                        setTexts(newTexts);
+                      }}
+                    />
+                  </div>
                 </Document>
               </div>
             </ScrollArea>
 
-            {/* Bottom Controls - Centered & Styled */}
-            <div className="border-t border-border px-4 py-2 flex items-center justify-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0 z-20">
+            {/* Bottom Controls */}
+            <div className="border-t border-border px-4 py-2 flex items-center justify-center bg-background/95 backdrop-blur z-20">
               <div className="flex items-center gap-6">
-
-                {/* Page Navigation */}
+                {/* Pagination */}
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={goToPrevPage}
-                    disabled={currentPage <= 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground tabular-nums min-w-[50px] text-center">
-                    {currentPage} / {numPages || "—"}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={goToNextPage}
-                    disabled={currentPage >= numPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrevPage} disabled={currentPage <= 1}><ChevronLeft className="h-4 w-4" /></Button>
+                  <span className="text-sm tabular-nums">{currentPage} / {numPages || '-'}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextPage} disabled={currentPage >= numPages}><ChevronRight className="h-4 w-4" /></Button>
+                </div>
+                <div className="h-4 w-px bg-border" />
+                {/* Zoom */}
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomOut} disabled={scale <= 0.5}><ZoomOut className="h-4 w-4" /></Button>
+                  <span className="text-sm tabular-nums text-center min-w-[3rem]">{Math.round(scale * 100)}%</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomIn} disabled={scale >= 3}><ZoomIn className="h-4 w-4" /></Button>
                 </div>
 
-                <div className="h-4 w-[1px] bg-border" />
-
-                {/* Zoom Controls */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={zoomOut}
-                    disabled={scale <= 0.5}
-                  >
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground tabular-nums min-w-[3rem] text-center">
-                    {Math.round(scale * 100)}%
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={zoomIn}
-                    disabled={scale >= 3}
-                  >
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="h-4 w-[1px] bg-border" />
+                <div className="h-4 w-px bg-border" />
 
                 {/* Rotate Control */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                  onClick={rotate}
-                >
-                  <RotateCw className="h-4 w-4" />
-                </Button>
-
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={rotate}
+                    title="Rotate Page"
+                  >
+                    <RotateCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted", !showAnnotations && "opacity-50")}
+                    onClick={() => setShowAnnotations(!showAnnotations)}
+                    title={showAnnotations ? "Hide Annotations" : "Show Annotations"}
+                  >
+                    {showAnnotations ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Vertical Tools - NEW */}
+          {/* Right Sidebar - Tools */}
           <TooltipProvider delayDuration={0}>
-            <div className="w-[56px] border-l border-border bg-muted/10 flex flex-col items-center py-4 z-10 transition-all">
+            <div className="w-[56px] border-l border-border bg-card flex flex-col items-center py-4 z-10">
               <div className="flex flex-col gap-2">
                 {tools.map((tool) => (
-                  <Popover
-                    key={tool.id}
-                    open={activeTool === tool.id && toolPopoverOpen}
-                    onOpenChange={(open) => {
-                      if (!open) setToolPopoverOpen(false);
-                    }}
-                  >
-                    <Tooltip>
+                  tool.id === 'select' ? (
+                    <Tooltip key={tool.id}>
                       <TooltipTrigger asChild>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-10 w-10 rounded-xl transition-all duration-200",
-                              activeTool === tool.id
-                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                            )}
-                            onClick={() => handleToolSelect(tool.id)}
-                          >
-                            <tool.icon className="h-5 w-5" />
-                          </Button>
-                        </PopoverTrigger>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-10 w-10 rounded-xl transition-all",
+                            activeTool === tool.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                          )}
+                          onClick={() => handleToolSelect(tool.id)}
+                        >
+                          <tool.icon className="h-5 w-5" />
+                        </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="left" className="flex items-center gap-2">
-                        {tool.label} <kbd className="text-[9px] bg-muted/20 px-1 rounded ml-1">{tool.shortcut}</kbd>
-                      </TooltipContent>
+                      <TooltipContent side="left">{tool.label}</TooltipContent>
                     </Tooltip>
+                  ) : (
+                    <Popover
+                      key={tool.id}
+                      open={activeTool === tool.id && toolPopoverOpen}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          setToolPopoverOpen(false);
+                        }
+                      }}
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "h-10 w-10 rounded-xl transition-all",
+                                activeTool === tool.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                              )}
+                              onClick={() => handleToolSelect(tool.id)}
+                            >
+                              <tool.icon className="h-5 w-5" />
+                            </Button>
+                          </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">{tool.label}</TooltipContent>
+                      </Tooltip>
 
-                    <PopoverContent side="left" align="start" className="w-[220px] p-3 mx-2" sideOffset={10}>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b border-border pb-2">
-                          <span className="text-sm font-semibold">{tool.label}</span>
-                          <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{tool.shortcut}</kbd>
-                        </div>
-
-                        {/* Color Selection */}
-                        <div className="space-y-2">
-                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Color</span>
-                          <div className="flex flex-wrap gap-2">
-                            {annotationColors.map((color) => (
-                              <button
-                                key={color.name}
-                                className={cn(
-                                  "w-6 h-6 rounded-full border-2 transition-all",
-                                  activeColor === color.value ? "border-foreground scale-110" : "border-transparent hover:scale-105"
-                                )}
-                                style={{ backgroundColor: color.value }}
-                                onClick={() => setActiveColor(color.value)}
-                                title={color.name}
-                              />
-                            ))}
+                      <PopoverContent side="left" align="start" className="w-[220px] p-3 mx-2" sideOffset={10}>
+                        <div className="space-y-4">
+                          <div className="flex justify-between border-b pb-2">
+                            <span className="font-semibold text-sm">{tool.label} Settings</span>
                           </div>
-                        </div>
 
-                        {/* Stroke/Opacity sliders (common for most tools) */}
-                        {tool.id !== 'text' && tool.id !== 'note' && (
+                          {/* Tool Preview */}
+                          <div className="h-12 w-full bg-muted/30 rounded-md mb-3 flex items-center justify-center border border-border/50 overflow-hidden relative">
+                            {(!activeTool || activeTool === 'erase') ? (
+                              <div className="rounded-full bg-foreground/10 border border-foreground/20" style={{ width: strokeWidth[0], height: strokeWidth[0], maxWidth: 32, maxHeight: 32 }} />
+                            ) : activeTool === 'text' ? (
+                              <span style={{ color: activeColor, fontSize: Math.min(32, strokeWidth[0] * 3) }}>Ag</span>
+                            ) : (
+                              <svg width="100%" height="100%" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                <path
+                                  d="M 10 20 C 30 5, 70 35, 90 20"
+                                  fill="none"
+                                  stroke={activeColor}
+                                  strokeWidth={strokeWidth[0]}
+                                  strokeOpacity={activeTool === 'highlight' ? opacity[0] / 100 : opacity[0] / 100}
+                                  strokeLinecap="round"
+                                  style={{ mixBlendMode: activeTool === 'highlight' ? 'multiply' : 'normal' }}
+                                />
+                              </svg>
+                            )}
+                          </div>
+
+                          {/* Color Picker (Skip for Eraser) */}
+                          {tool.id !== 'erase' && (
+                            <div className="space-y-2">
+                              <span className="text-xs text-muted-foreground uppercase">Color</span>
+                              <div className="flex flex-wrap gap-2">
+                                {annotationColors.map(c => (
+                                  <button
+                                    key={c.name}
+                                    className={cn("w-6 h-6 rounded-full border-2 transition-all", activeColor === c.value ? "border-foreground scale-110" : "border-transparent")}
+                                    style={{ backgroundColor: c.value }}
+                                    onClick={() => setActiveColor(c.value)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sliders */}
                           <div className="space-y-3">
                             <div className="space-y-1.5">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Stroke</span>
-                                <span className="font-mono">{strokeWidth[0]}px</span>
-                              </div>
-                              <Slider value={strokeWidth} onValueChange={setStrokeWidth} min={1} max={20} step={1} />
+                              <span className="text-xs text-muted-foreground flex justify-between">
+                                {tool.id === 'text' ? 'Font Size' : 'Stroke Width'}
+                                <span>{strokeWidth}px</span>
+                              </span>
+                              <Slider value={strokeWidth} onValueChange={setStrokeWidth} min={1} max={40} step={1} />
                             </div>
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Opacity</span>
-                                <span className="font-mono">{opacity[0]}%</span>
+
+                            {/* Opacity (Skip for Eraser) */}
+                            {tool.id !== 'erase' && (
+                              <div className="space-y-1.5">
+                                <span className="text-xs text-muted-foreground flex justify-between">
+                                  Opacity
+                                  <span>{opacity}%</span>
+                                </span>
+                                <Slider value={opacity} onValueChange={setOpacity} min={10} max={100} step={10} />
                               </div>
-                              <Slider value={opacity} onValueChange={setOpacity} min={10} max={100} step={10} />
-                            </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )
                 ))}
               </div>
             </div>

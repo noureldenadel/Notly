@@ -55,6 +55,34 @@ export const COLORS = {
 } as const;
 
 /**
+ * Card color options for consistent color names across the app.
+ */
+export const CARD_COLORS = {
+    BLUE: 'highlight-blue',
+    PURPLE: 'highlight-purple',
+    GREEN: 'highlight-green',
+    YELLOW: 'highlight-yellow',
+    PINK: 'highlight-pink',
+    ORANGE: 'highlight-orange',
+} as const;
+
+export type CardColor = typeof CARD_COLORS[keyof typeof CARD_COLORS];
+
+/**
+ * Modal type identifiers for the modal system.
+ */
+export const MODAL_TYPES = {
+    SETTINGS: 'settings',
+    SHORTCUTS: 'shortcuts',
+    PDF_VIEWER: 'pdf-viewer',
+    CARD_EDITOR: 'card-editor',
+    SEARCH: 'search',
+    IMPORT_EXPORT: 'import-export',
+} as const;
+
+export type ModalType = typeof MODAL_TYPES[keyof typeof MODAL_TYPES];
+
+/**
  * localStorage keys for persistence.
  */
 export const STORAGE_KEYS = {

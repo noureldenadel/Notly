@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Visual Thinking",
+  "productName": "Nōtly",
   "version": "0.1.0",
-  "identifier": "com.visualthinking.app",
+  "identifier": "com.notly.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:8080",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Visual Thinking",
+        "title": "Nōtly",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

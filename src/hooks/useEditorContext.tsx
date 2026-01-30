@@ -36,10 +36,6 @@ interface EditorContextType {
     insertPDF: () => void;
     insertCard: () => void;
     insertMindMap: () => void;
-
-    // Placement mode (for toolbar active state)
-    placementMode: 'card' | 'mindmap' | null;
-    cancelPlacement: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -69,8 +65,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
-    const [placementMode, setPlacementMode] = useState<'card' | 'mindmap' | null>(null);
-    const placementCleanupRef = React.useRef<(() => void) | null>(null);
 
     const setEditor = useCallback((newEditor: Editor | null) => {
         setEditorState(newEditor);
@@ -99,15 +93,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Cancel placement mode
-    const cancelPlacement = useCallback(() => {
-        setPlacementMode(null);
-    }, []);
+
 
     const setTool = useCallback((toolId: string) => {
-        // Find existing setTool and add cancelPlacement()
-        cancelPlacement();
-
         if (!editor) return;
 
         // Skip action tools - they have their own handlers
@@ -131,12 +119,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         } else {
             editor.setCurrentTool(tldrawTool);
         }
-    }, [editor, cancelPlacement]);
+    }, [editor]);
 
     // Insert image via file dialog
     const insertImage = useCallback(() => {
         log.debug('insertImage called, editor:', !!editor);
-        cancelPlacement(); // Ensure we exit any placement mode
         if (editor) editor.setCurrentTool('select'); // Force select tool
 
         // Create file input element
@@ -219,12 +206,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         };
 
         input.click();
-    }, [editor, cancelPlacement]);
+    }, [editor]);
 
     // Insert PDF via file dialog
     const insertPDF = useCallback(() => {
         log.debug('insertPDF called, editor:', !!editor);
-        cancelPlacement(); // Ensure we exit any placement mode
         if (editor) editor.setCurrentTool('select'); // Force select tool
 
         // Create file input element
@@ -321,101 +307,19 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         };
 
         input.click();
-    }, [editor, cancelPlacement]);
+    }, [editor]);
 
-    // Placement Logic - Event Listeners & Cursor
-    useEffect(() => {
-        if (!editor || !placementMode) return;
-
-        // Setup cursor
-        editor.setCursor({ type: 'cross', rotation: 0 });
-
-        const onPointerDown = (info: any) => {
-            if (info.name === 'pointer_down' && info.button === 0) {
-                const screenPoint = editor.inputs.currentScreenPoint;
-                const pagePoint = editor.screenToPage(screenPoint);
-
-                if (placementMode === 'card') {
-                    const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
-                    editor.createShape({
-                        type: 'card',
-                        x: pagePoint.x - SHAPE_DEFAULTS.CARD.WIDTH / 2,
-                        y: pagePoint.y - SHAPE_DEFAULTS.CARD.HEIGHT / 2,
-                        props: {
-                            w: SHAPE_DEFAULTS.CARD.WIDTH,
-                            h: SHAPE_DEFAULTS.CARD.HEIGHT,
-                            cardId: card.id || '',
-                            title: card.title || 'New Card',
-                            content: card.content || '',
-                            color: card.color || COLORS.DEFAULT_CARD,
-                            isEditing: false,
-                        },
-                    });
-                    log.debug('Card created at', pagePoint);
-                } else if (placementMode === 'mindmap') {
-                    editor.createShape({
-                        type: 'mindmap',
-                        x: pagePoint.x - SHAPE_DEFAULTS.MINDMAP.WIDTH / 2,
-                        y: pagePoint.y - SHAPE_DEFAULTS.MINDMAP.HEIGHT / 2,
-                        props: {
-                            w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
-                            h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
-                            rootNode: createDefaultMindMap('Main Topic'),
-                            layout: 'horizontal',
-                            theme: 'default',
-                        },
-                    });
-                    log.debug('Mindmap created at', pagePoint);
-                }
-
-                // Reset after placement
-                setPlacementMode(null);
-            }
-        };
-
-        editor.on('event', onPointerDown);
-
-        return () => {
-            editor.off('event', onPointerDown);
-            editor.setCursor({ type: 'default', rotation: 0 });
-        };
-    }, [editor, placementMode]);
-
-    // Monitor for external tool switches to cancel placement
-    useEffect(() => {
-        if (!editor) return;
-
-        const handleToolChange = () => {
-            const currentTool = editor.getCurrentToolId();
-            // If manual switch to something other than select (like Draw, Hand, etc.), cancel our placement
-            if (placementMode && currentTool !== 'select') {
-                setPlacementMode(null);
-            }
-        };
-
-        editor.on('change', handleToolChange);
-        return () => {
-            editor.off('change', handleToolChange);
-        };
-    }, [editor, placementMode]);
-
-    // Insert card - Imperatively switch tool
+    // Insert card - Use native tool
     const insertCard = useCallback(() => {
         if (!editor) return;
-        // Immediately force Select tool to kill any current tool (sticky, draw, etc.)
-        editor.setCurrentTool('select');
-        setPlacementMode('card');
+        editor.setCurrentTool('card');
     }, [editor]);
 
-    // Insert mind map - Imperatively switch tool
+    // Insert mind map - Use native tool
     const insertMindMap = useCallback(() => {
         if (!editor) return;
-        // Immediately force Select tool
-        editor.setCurrentTool('select');
-        setPlacementMode('mindmap');
+        editor.setCurrentTool('mindmap');
     }, [editor]);
-
-
 
     const undo = useCallback(() => {
         if (editor?.getCanUndo()) {
@@ -468,8 +372,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 insertPDF,
                 insertCard,
                 insertMindMap,
-                placementMode,
-                cancelPlacement,
             }}
         >
             {children}

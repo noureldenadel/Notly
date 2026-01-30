@@ -77,6 +77,10 @@ export const TextFormattingToolbar = () => {
     useEffect(() => {
         if (!editor) return;
 
+        let updateScheduled = false;
+        let lastUpdateTime = 0;
+        const THROTTLE_MS = 50; // Throttle updates to reduce lag
+
         const updateToolbar = () => {
             // Only show toolbar if using the select tool
             const currentToolId = editor.getCurrentToolId();
@@ -85,6 +89,7 @@ export const TextFormattingToolbar = () => {
                 return;
             }
 
+            // Hide during drag/resize/brush operations
             if (editor.isIn('select.translating') || editor.isIn('select.resizing') || editor.isIn('select.brushing')) {
                 setIsVisible(false);
                 return;
@@ -162,7 +167,29 @@ export const TextFormattingToolbar = () => {
             }
         };
 
-        const unsubscribe = editor.store.listen(updateToolbar, { scope: 'all' });
+        // Throttled update function to prevent lag during rapid changes
+        const throttledUpdate = () => {
+            const now = Date.now();
+            if (now - lastUpdateTime >= THROTTLE_MS) {
+                lastUpdateTime = now;
+                updateToolbar();
+                updateScheduled = false;
+            } else if (!updateScheduled) {
+                updateScheduled = true;
+                setTimeout(() => {
+                    updateScheduled = false;
+                    lastUpdateTime = Date.now();
+                    updateToolbar();
+                }, THROTTLE_MS - (now - lastUpdateTime));
+            }
+        };
+
+        // Listen only to document changes (selection), not all changes
+        // Using source: 'user' to only capture user actions, not internal updates
+        const unsubscribe = editor.store.listen(throttledUpdate, {
+            scope: 'document',
+            source: 'user'
+        });
 
         const handlePointerUp = () => requestAnimationFrame(updateToolbar);
         window.addEventListener('pointerup', handlePointerUp);

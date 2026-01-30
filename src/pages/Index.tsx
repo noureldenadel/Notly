@@ -83,7 +83,6 @@ function IndexContent() {
     insertPDF,
     insertCard,
     insertMindMap,
-    placementMode,
     undo,
     redo,
     zoomIn,
@@ -96,17 +95,27 @@ function IndexContent() {
     if (editor) {
       editor.setStyleForNextShapes(DefaultFontStyle, 'sans');
 
-      // Sync tool changes from editor to UI (e.g. when tool switches back to select after placing shape)
+      let lastSyncTime = 0;
+      const SYNC_THROTTLE_MS = 100; // Only sync tool every 100ms max
+
+      // Sync tool changes from editor to UI (throttled)
       const handleChange = () => {
-        // If we are in a custom placement mode (card/mindmap), do NOT revert UI to select/hand
-        // because the editor tool is technically 'select' but we want to show 'card' as active.
-        if (placementMode) return;
+        // Skip sync during movement operations for performance
+        if (editor.isIn('select.translating') || editor.isIn('select.resizing')) {
+          return;
+        }
+
+        // Throttle tool sync to reduce re-renders
+        const now = Date.now();
+        if (now - lastSyncTime < SYNC_THROTTLE_MS) {
+          return;
+        }
+        lastSyncTime = now;
 
         const tldrawToolId = editor.getCurrentToolId();
 
         let uiToolId = tldrawToolId;
 
-        // Map tldraw IDs to UI IDs
         // Map tldraw IDs to UI IDs
         if (tldrawToolId === 'note') uiToolId = 'sticky';
 
@@ -124,7 +133,7 @@ function IndexContent() {
         // Only update if different and valid
         if (uiToolId !== activeTool) {
           // List of valid UI tools to sync back to
-          const validTools = ['select', 'hand', 'draw', 'eraser', 'arrow', 'text', 'sticky', 'frame', 'rectangle', 'ellipse'];
+          const validTools = ['select', 'hand', 'draw', 'eraser', 'arrow', 'text', 'sticky', 'frame', 'rectangle', 'ellipse', 'card', 'mindmap'];
           if (validTools.includes(uiToolId)) {
             setActiveTool(uiToolId);
           }
@@ -136,7 +145,7 @@ function IndexContent() {
         editor.off('change', handleChange);
       };
     }
-  }, [editor, activeTool, setActiveTool, placementMode]);
+  }, [editor, activeTool, setActiveTool]);
 
   // Create card shortcut handler
   const handleCreateCardShortcut = useCallback(() => {
@@ -416,7 +425,6 @@ function IndexContent() {
                 onInsertPDF={insertPDF}
                 onInsertCard={insertCard}
                 onInsertMindMap={insertMindMap}
-                placementMode={placementMode}
               />
             </CanvasDropZone>
           </div>

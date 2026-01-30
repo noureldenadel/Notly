@@ -188,17 +188,17 @@ const Projects = () => {
                     <button
                         onClick={() => leftSidebarCollapsed && toggleLeftSidebar()}
                         className={cn(
-                            "w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0",
+                            "w-6 h-6 rounded-md overflow-hidden flex-shrink-0",
                             leftSidebarCollapsed && "cursor-pointer hover:opacity-80 transition-opacity"
                         )}
                         disabled={!leftSidebarCollapsed}
                         title={leftSidebarCollapsed ? "Expand sidebar" : undefined}
                     >
-                        <span className="text-xs font-bold text-primary-foreground">V</span>
+                        <img src="/logo.svg" alt="Nōtly" className="w-full h-full" />
                     </button>
                     {!leftSidebarCollapsed && (
                         <>
-                            <span className="font-semibold text-sm flex-1">Visual Think</span>
+                            <span className="font-semibold text-sm flex-1">Nōtly</span>
                             <button
                                 onClick={toggleLeftSidebar}
                                 className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"

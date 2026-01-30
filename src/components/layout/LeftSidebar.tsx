@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -24,7 +24,7 @@ interface SidebarSectionProps {
   actions?: React.ReactNode;
 }
 
-const SidebarSection = ({ title, icon, children, defaultOpen = true, actions }: SidebarSectionProps) => {
+const SidebarSection = React.memo(({ title, icon, children, defaultOpen = true, actions }: SidebarSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
@@ -49,7 +49,8 @@ const SidebarSection = ({ title, icon, children, defaultOpen = true, actions }: 
       )}
     </div>
   );
-};
+});
+SidebarSection.displayName = 'SidebarSection';
 
 interface SidebarItemProps {
   icon: React.ReactNode;
@@ -60,7 +61,7 @@ interface SidebarItemProps {
   color?: string;
 }
 
-const SidebarItem = ({ icon, label, isActive, onClick, badge, color }: SidebarItemProps) => (
+const SidebarItem = React.memo(({ icon, label, isActive, onClick, badge, color }: SidebarItemProps) => (
   <button
     onClick={onClick}
     className={cn(
@@ -79,7 +80,8 @@ const SidebarItem = ({ icon, label, isActive, onClick, badge, color }: SidebarIt
     )}
     <MoreHorizontal className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
   </button>
-);
+));
+SidebarItem.displayName = 'SidebarItem';
 
 interface ProjectItemProps {
   id: string;
@@ -91,7 +93,7 @@ interface ProjectItemProps {
   onBoardClick?: (boardId: string) => void;
 }
 
-const ProjectItem = ({ id, name, color, isActive, boards = [], onProjectClick, onBoardClick }: ProjectItemProps) => {
+const ProjectItem = React.memo(({ id, name, color, isActive, boards = [], onProjectClick, onBoardClick }: ProjectItemProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleProjectClick = () => {
@@ -142,7 +144,8 @@ const ProjectItem = ({ id, name, color, isActive, boards = [], onProjectClick, o
       )}
     </div>
   );
-};
+});
+ProjectItem.displayName = 'ProjectItem';
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -152,18 +155,16 @@ interface LeftSidebarProps {
 export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
   const { toast } = useToast();
 
-  // Real store data
-  const { createCard } = useCardStore();
+  // Optimized store subscriptions with useShallow
+  const createCard = useCardStore(s => s.createCard);
 
-  // Project store
-  const {
-    projects: storeProjects,
-    createProject,
-    setActiveProject,
-    createBoard,
-    setActiveBoard,
-    getBoardsByProject
-  } = useProjectStore();
+  // Project store - use atomic selectors for better performance
+  const storeProjects = useProjectStore(s => s.projects);
+  const createProject = useProjectStore(s => s.createProject);
+  const setActiveProject = useProjectStore(s => s.setActiveProject);
+  const createBoard = useProjectStore(s => s.createBoard);
+  const setActiveBoard = useProjectStore(s => s.setActiveBoard);
+  const getBoardsByProject = useProjectStore(s => s.getBoardsByProject);
 
   // Handle New Card with toast
   const handleNewCard = () => {
@@ -221,10 +222,8 @@ export const LeftSidebar = ({ isCollapsed, onToggle }: LeftSidebarProps) => {
       <div className="p-3 border-b border-sidebar-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-primary/20 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">V</span>
-            </div>
-            <span className="font-semibold text-sm">Visual Think</span>
+            <img src="/logo.svg" alt="Nōtly" className="w-6 h-6 rounded-md" />
+            <span className="font-semibold text-sm">Nōtly</span>
           </div>
           <Button variant="ghost" size="icon" className="w-6 h-6" onClick={onToggle}>
             <ChevronRight className="w-3 h-3 rotate-180" />

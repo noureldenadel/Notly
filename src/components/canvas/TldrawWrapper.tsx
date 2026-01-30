@@ -12,6 +12,8 @@ import { CardShapeUtil } from './shapes/CardShape';
 import { PDFShapeUtil } from './shapes/PDFShape';
 import { HighlightShapeUtil } from './shapes/HighlightShape';
 import { MindMapShapeUtil, createDefaultMindMap } from './shapes/MindMapShape';
+import { CardTool } from './tools/CardTool';
+import { MindMapTool } from './tools/MindMapTool';
 import { createLogger } from '@/lib/logger';
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
 
@@ -63,7 +65,10 @@ export function TldrawWrapper({
                 }
             }
 
-            // Subscribe to store changes for auto-save
+            // Subscribe to store changes for auto-save (debounced)
+            let saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
+            const SAVE_DEBOUNCE_MS = 300; // Wait 300ms after last change before saving
+
             editor.store.listen(
                 (info) => {
                     if (info.source === 'user') {
@@ -71,23 +76,38 @@ export function TldrawWrapper({
 
                         // Debounced snapshot for auto-save
                         if (onSnapshotChange) {
-                            const snapshot = getSnapshot(editor.store);
-                            onSnapshotChange(JSON.stringify(snapshot));
-                            recordAutoSave();
+                            // Clear existing timeout
+                            if (saveTimeoutId !== null) {
+                                clearTimeout(saveTimeoutId);
+                            }
+                            // Schedule new save after debounce period
+                            saveTimeoutId = setTimeout(() => {
+                                const snapshot = getSnapshot(editor.store);
+                                onSnapshotChange(JSON.stringify(snapshot));
+                                recordAutoSave();
+                                saveTimeoutId = null;
+                            }, SAVE_DEBOUNCE_MS);
                         }
                     }
                 },
                 { scope: 'document' }
             );
 
-            // Subscribe to camera/viewport changes
-            editor.on('change', () => {
+            // Subscribe to camera/viewport changes (throttled with RAF)
+            let rafId: number | null = null;
+            const updateViewport = () => {
                 const camera = editor.getCamera();
                 setViewport({
                     x: camera.x,
                     y: camera.y,
                     zoom: camera.z,
                 });
+                rafId = null;
+            };
+            editor.on('change', () => {
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(updateViewport);
+                }
             });
 
             // Notify parent component
@@ -101,14 +121,12 @@ export function TldrawWrapper({
     // Sync grid mode with Tldraw editor
     const editor = useCanvasStore((state) => state.editorRef) as Editor | null;
 
-    useMemo(() => {
+    // Sync grid mode with Tldraw editor
+    useEffect(() => {
         if (!editor) return;
         const showGrid = appearance.gridType !== 'none';
         if (editor.getInstanceState().isGridMode !== showGrid) {
-            // Wait for editor to be ready
-            setTimeout(() => {
-                editor.updateInstanceState({ isGridMode: showGrid });
-            }, 0);
+            editor.updateInstanceState({ isGridMode: showGrid });
         }
     }, [editor, appearance.gridType]);
 
@@ -205,12 +223,16 @@ export function TldrawWrapper({
         Grid: CustomGrid,
     }), [CustomGrid]);
 
+    // Memoize tools array
+    const tools = useMemo(() => [CardTool, MindMapTool], []);
+
     return (
         <div
             className={`w-full h-full ${className}`}
             style={{ position: 'relative' }}
         >
             <Tldraw
+                tools={tools}
                 shapeUtils={shapeUtils}
                 onMount={handleMount}
                 inferDarkMode={false}

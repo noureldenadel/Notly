@@ -147,7 +147,7 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                         Settings
                     </DialogTitle>
                     <DialogDescription>
-                        Configure your Visual Thinking workspace
+                        Configure your Nōtly workspace
                     </DialogDescription>
                 </DialogHeader>
 

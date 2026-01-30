@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppInitializer } from "@/components/AppInitializer";
 import { setupGlobalErrorHandlers, logError, type AppError } from "@/lib/errorHandling";
 import { useAppearanceSettings } from "@/stores/settingsStore";
 import Index from "./pages/Index";
@@ -50,6 +51,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+
 const App = () => {
   // Set up global error handlers
   useEffect(() => {
@@ -62,6 +64,7 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ThemeProvider>
+            <AppInitializer />
             <Toaster />
             <Sonner />
             <BrowserRouter>

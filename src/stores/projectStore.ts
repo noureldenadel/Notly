@@ -176,24 +176,27 @@ export const useProjectStore = create<ProjectState>()(
             },
 
             deleteProject: (id) => {
+                // Capture boards to delete before modifying state
+                const boardsToDelete = get().boards.filter((b) => b.projectId === id);
+
                 set((state) => {
                     state.projects = state.projects.filter((p) => p.id !== id);
-                    const boardsToDelete = state.boards.filter((b) => b.projectId === id);
                     state.boards = state.boards.filter((b) => b.projectId !== id);
                     if (state.activeProjectId === id) {
                         state.activeProjectId = null;
                         state.activeBoardId = null;
                     }
-                    // Delete from persistence
-                    (async () => {
-                        const { getPersistence } = await import('@/lib/persistence');
-                        const p = await getPersistence();
-                        await p.deleteProject(id);
-                        for (const board of boardsToDelete) {
-                            await p.deleteBoard(board.id);
-                        }
-                    })();
                 });
+
+                // Delete from persistence (outside of set)
+                (async () => {
+                    const { getPersistence } = await import('@/lib/persistence');
+                    const p = await getPersistence();
+                    await p.deleteProject(id);
+                    for (const board of boardsToDelete) {
+                        await p.deleteBoard(board.id);
+                    }
+                })();
             },
 
             setActiveProject: (id) => {

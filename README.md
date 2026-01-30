@@ -1,4 +1,4 @@
-# Visual Thinking Workspace
+# Nōtly
 
 A comprehensive, infinite-canvas based workspace designed for visual thinkers. Organize your projects, boards, and ideas in a flexible, open environment. This application combines the power of freeform drawing with structured data management, allowing you to manage cards, files, links, and more on a boundless canvas.
 
