@@ -141,64 +141,65 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
+            // Dynamically import asset manager
+            const { importFile } = await import('@/lib/assetManager');
+
             for (const file of Array.from(files)) {
                 try {
-                    // Read file as data URL
-                    const reader = new FileReader();
-                    reader.onload = async (event) => {
-                        const dataUrl = event.target?.result as string;
+                    // Import file (copys to assets folder in Tauri)
+                    const { url, relativePath } = await importFile(file, 'image');
 
-                        // Create image element to get dimensions
-                        const img = new Image();
-                        img.src = dataUrl;
-                        await new Promise((resolve) => { img.onload = resolve; });
+                    // Create image element to get dimensions
+                    const img = new Image();
+                    img.src = url;
+                    await new Promise((resolve) => { img.onload = resolve; });
 
-                        // Create asset
-                        const assetId = AssetRecordType.createId(nanoid());
-                        const asset = AssetRecordType.create({
-                            id: assetId,
-                            type: 'image',
-                            typeName: 'asset',
-                            props: {
-                                name: file.name,
-                                src: dataUrl,
-                                w: img.width,
-                                h: img.height,
-                                mimeType: file.type,
-                                isAnimated: file.type === 'image/gif',
-                            },
-                            meta: {},
-                        });
+                    // Create asset
+                    const assetId = AssetRecordType.createId(nanoid());
+                    const asset = AssetRecordType.create({
+                        id: assetId,
+                        type: 'image',
+                        typeName: 'asset',
+                        props: {
+                            name: file.name,
+                            src: url, // Use the resolved URL (blob: or tauri://)
+                            w: img.width,
+                            h: img.height,
+                            mimeType: file.type,
+                            isAnimated: file.type === 'image/gif',
+                        },
+                        meta: {
+                            relativePath, // Store relative path for portability/recovery
+                        },
+                    });
 
-                        // Add asset to store
-                        editor.createAssets([asset]);
+                    // Add asset to store
+                    editor.createAssets([asset]);
 
-                        // Calculate scaled dimensions
-                        const scaledWidth = Math.min(img.width, SHAPE_DEFAULTS.IMAGE.MAX_WIDTH);
-                        const aspectRatio = img.height / img.width;
-                        const scaledHeight = scaledWidth * aspectRatio;
+                    // Calculate scaled dimensions
+                    const scaledWidth = Math.min(img.width, SHAPE_DEFAULTS.IMAGE.MAX_WIDTH);
+                    const aspectRatio = img.height / img.width;
+                    const scaledHeight = scaledWidth * aspectRatio;
 
-                        // Get center of viewport for placement
-                        const { x, y } = getViewportCenter(editor, scaledWidth, scaledHeight);
+                    // Get center of viewport for placement
+                    const { x, y } = getViewportCenter(editor, scaledWidth, scaledHeight);
 
-                        // Create image shape at center of viewport
-                        const shapeId = createShapeId();
-                        editor.createShape({
-                            id: shapeId,
-                            type: 'image',
-                            x,
-                            y,
-                            props: {
-                                assetId,
-                                w: scaledWidth,
-                                h: scaledHeight,
-                            },
-                        });
+                    // Create image shape at center of viewport
+                    const shapeId = createShapeId();
+                    editor.createShape({
+                        id: shapeId,
+                        type: 'image',
+                        x,
+                        y,
+                        props: {
+                            assetId,
+                            w: scaledWidth,
+                            h: scaledHeight,
+                        },
+                    });
 
-                        // Auto-select the new image
-                        editor.select(shapeId);
-                    };
-                    reader.readAsDataURL(file);
+                    // Auto-select the new image
+                    editor.select(shapeId);
                 } catch (error) {
                     log.error('Failed to insert image:', error);
                 }
@@ -231,14 +232,15 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             const file = files[0];
 
             try {
-                // Create object URL for the PDF
-                const objectUrl = URL.createObjectURL(file);
+                // Import file via asset manager
+                const { importFile } = await import('@/lib/assetManager');
+                const { url, relativePath } = await importFile(file, 'pdf');
 
                 // Load PDF to get page count and generate thumbnail
                 const { pdfjs } = await import('react-pdf');
                 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-                const loadingTask = pdfjs.getDocument(objectUrl);
+                const loadingTask = pdfjs.getDocument(url);
                 const pdf = await loadingTask.promise;
                 const totalPages = pdf.numPages;
                 log.debug('PDF loaded, total pages:', totalPages);
@@ -289,11 +291,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     props: {
                         w: width,
                         h: totalHeight,
-                        fileId: String(objectUrl || ''),
+                        fileId: relativePath, // Store relative path! PDFViewerModal now resolves this.
                         filename: String(file.name || 'Document.pdf'),
                         pageNumber: 1,
                         totalPages: totalPages,
-                        thumbnailPath: thumbnailPath,
+                        thumbnailPath: thumbnailPath, // Keep base64 for thumbnail for now
                     },
                 });
 

@@ -57,12 +57,40 @@ export function TldrawWrapper({
 
             // Load initial snapshot if provided
             if (initialSnapshot) {
-                try {
-                    const parsed = JSON.parse(initialSnapshot);
-                    loadSnapshot(editor.store, parsed);
-                } catch (e) {
-                    console.error('Failed to load canvas snapshot:', e);
-                }
+                const load = async () => {
+                    try {
+                        const parsed = JSON.parse(initialSnapshot);
+
+                        // Patch assets with resolved URLs
+                        // This ensures that 'tauri://' URLs are valid for the current session/machine
+                        try {
+                            const { getAssetUrl } = await import('@/lib/assetManager');
+                            const records = parsed.store || {};
+
+                            const promises = Object.values(records).map(async (record: any) => {
+                                if (record.typeName === 'asset' && record.type === 'image' && record.meta?.relativePath) {
+                                    try {
+                                        const url = await getAssetUrl(record.meta.relativePath as string);
+                                        if (url) {
+                                            record.props.src = url;
+                                        }
+                                    } catch (e) {
+                                        console.error('Failed to resolve asset path:', e);
+                                    }
+                                }
+                            });
+
+                            await Promise.all(promises);
+                        } catch (e) {
+                            console.error('Failed to patch assets:', e);
+                        }
+
+                        loadSnapshot(editor.store, parsed);
+                    } catch (e) {
+                        console.error('Failed to load canvas snapshot:', e);
+                    }
+                };
+                load();
             }
 
             // Subscribe to store changes for auto-save (debounced)

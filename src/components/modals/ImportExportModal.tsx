@@ -122,18 +122,34 @@ export function ImportExportModal({ open, onOpenChange, initialTab = 'import' }:
                     }
                     case 'image':
                     case 'pdf': {
-                        // Add file to store
-                        addFile(
-                            importedFile.file.name,
-                            importedFile.file.name, // Would be actual path in Tauri
-                            importedFile.type,
-                            {
-                                fileSize: importedFile.file.size,
-                                mimeType: importedFile.file.type,
-                                importMode: 'copy',
-                            }
-                        );
-                        updatedFiles[i] = { ...importedFile, status: 'success' };
+                        // Import file using asset manager (copies to app folder)
+                        const { importFile: importAssetFile } = await import('@/lib/assetManager');
+                        try {
+                            const { relativePath, url } = await importAssetFile(
+                                importedFile.file,
+                                importedFile.type as 'pdf' | 'image'
+                            );
+                            // Add file to store with the new path
+                            addFile(
+                                importedFile.file.name,
+                                relativePath, // Now stores the relative path in app assets
+                                importedFile.type,
+                                {
+                                    fileSize: importedFile.file.size,
+                                    mimeType: importedFile.file.type,
+                                    importMode: 'copy',
+                                    metadata: { originalUrl: url },
+                                }
+                            );
+                            updatedFiles[i] = { ...importedFile, status: 'success' };
+                        } catch (assetError) {
+                            console.error('Failed to import file:', assetError);
+                            updatedFiles[i] = {
+                                ...importedFile,
+                                status: 'error',
+                                error: assetError instanceof Error ? assetError.message : 'Failed to import file'
+                            };
+                        }
                         break;
                     }
                     default:

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   Dialog,
@@ -72,6 +72,33 @@ export const PDFViewerModal = ({
   const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
   const [pageDimensions, setPageDimensions] = useState({ width: 595, height: 842 }); // Default A4, updated on load
+  const [resolvedPdfUrl, setResolvedPdfUrl] = useState<string>('');
+
+  // Resolve PDF URL
+  useEffect(() => {
+    let active = true;
+    const resolve = async () => {
+      try {
+        if (!pdfUrl) return;
+
+        // If it's already a blob/data URL or http, use it
+        if (pdfUrl.startsWith('blob:') || pdfUrl.startsWith('data:') || pdfUrl.startsWith('http')) {
+          if (active) setResolvedPdfUrl(pdfUrl);
+          return;
+        }
+
+        // Otherwise resolve using asset manager
+        const { getAssetUrl } = await import('@/lib/assetManager');
+        const url = await getAssetUrl(pdfUrl);
+        if (active) setResolvedPdfUrl(url);
+      } catch (e) {
+        console.error('Failed to resolve PDF URL:', e);
+      }
+    };
+    resolve();
+    return () => { active = false; };
+  }, [pdfUrl]);
+
 
   // Annotation State
   const [activeTool, setActiveTool] = useState<AnnotationTool>(null);
@@ -179,7 +206,7 @@ export const PDFViewerModal = ({
             <ScrollArea className="flex-1">
               <div className="p-3 space-y-3">
                 {/* Single Document for all thumbnails - avoids loading PDF multiple times */}
-                <Document file={pdfUrl} className="contents">
+                <Document file={resolvedPdfUrl} className="contents">
                   {Array.from(new Array(numPages), (el, index) => (
                     <button
                       key={`page_${index + 1}`}
@@ -212,7 +239,7 @@ export const PDFViewerModal = ({
             <ScrollArea className="flex-1">
               <div className="flex items-center justify-center p-6 min-h-full">
                 <Document
-                  file={pdfUrl}
+                  file={resolvedPdfUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
                   loading={<div className="h-96 flex items-center justify-center text-muted-foreground">Loading PDF...</div>}
                 >

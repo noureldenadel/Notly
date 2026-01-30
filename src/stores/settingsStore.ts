@@ -15,6 +15,7 @@ export interface AppearanceSettings {
     canvasBackground: string;
     defaultCardColor: string;
     gridType: 'none' | 'dotted' | 'lined';
+    uiScale: number;
 }
 
 // Behavior settings
@@ -45,6 +46,7 @@ const defaultAppearance: AppearanceSettings = {
     canvasBackground: '#1a1a2e',
     defaultCardColor: 'highlight-blue',
     gridType: 'dotted',
+    uiScale: 1.0,
 };
 
 const defaultBehavior: BehaviorSettings = {

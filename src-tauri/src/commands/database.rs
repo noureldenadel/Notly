@@ -234,9 +234,30 @@ pub async fn get_app_data_dir() -> Result<String, String> {
 }
 
 #[command]
-pub async fn ensure_directory_structure() -> Result<bool, String> {
-    // Creates: projects/, backups/, temp/
-    log::info!("Ensuring directory structure exists");
+pub async fn ensure_directory_structure(app: tauri::AppHandle) -> Result<bool, String> {
+    use std::fs;
+    
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    // Create main directories
+    let directories = [
+        app_data_dir.join("assets").join("pdfs"),
+        app_data_dir.join("assets").join("images"),
+        app_data_dir.join("assets").join("other"),
+        app_data_dir.join("backups"),
+        app_data_dir.join("temp"),
+    ];
+    
+    for dir in &directories {
+        if let Err(e) = fs::create_dir_all(dir) {
+            log::error!("Failed to create directory {:?}: {}", dir, e);
+            return Err(format!("Failed to create directory: {}", e));
+        }
+    }
+    
+    log::info!("Directory structure ensured at: {:?}", app_data_dir);
     Ok(true)
 }
 
@@ -310,4 +331,114 @@ pub async fn fts_rebuild_index() -> Result<bool, String> {
     // 4. etc.
     
     Ok(true)
+}
+
+// ============================================
+// Asset Management Commands
+// ============================================
+
+/// Get the assets directory path
+#[command]
+pub async fn get_assets_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    let assets_dir = app_data_dir.join("assets");
+    Ok(assets_dir.to_string_lossy().to_string())
+}
+
+/// Copy a file to the app's assets folder
+/// Returns the new relative path within the assets folder
+#[command]
+pub async fn copy_file_to_assets(
+    app: tauri::AppHandle,
+    source_path: String,
+    file_type: String, // "pdf" | "image"
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let source = Path::new(&source_path);
+    
+    // Validate source exists
+    if !source.exists() {
+        return Err(format!("Source file does not exist: {}", source_path));
+    }
+    
+    // Get app data directory
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    // Determine target subdirectory
+    let subdir = match file_type.as_str() {
+        "pdf" => "pdfs",
+        "image" => "images",
+        _ => "other",
+    };
+    
+    let assets_dir = app_data_dir.join("assets").join(subdir);
+    
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&assets_dir)
+        .map_err(|e| format!("Failed to create assets directory: {}", e))?;
+    
+    // Generate unique filename: timestamp_originalname
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    let original_name = source.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let new_filename = format!("{}_{}", timestamp, original_name);
+    
+    let target_path = assets_dir.join(&new_filename);
+    
+    // Copy the file
+    fs::copy(source, &target_path)
+        .map_err(|e| format!("Failed to copy file: {}", e))?;
+    
+    // Return the relative path from assets folder
+    let relative_path = format!("{}/{}", subdir, new_filename);
+    log::info!("Copied file to assets: {}", relative_path);
+    
+    Ok(relative_path)
+}
+
+/// Delete a file from the assets folder
+#[command]
+pub async fn delete_asset_file(
+    app: tauri::AppHandle,
+    relative_path: String,
+) -> Result<bool, String> {
+    use std::fs;
+    
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    let file_path = app_data_dir.join("assets").join(&relative_path);
+    
+    if file_path.exists() {
+        fs::remove_file(&file_path)
+            .map_err(|e| format!("Failed to delete file: {}", e))?;
+        log::info!("Deleted asset file: {}", relative_path);
+        Ok(true)
+    } else {
+        log::warn!("Asset file not found: {}", relative_path);
+        Ok(false)
+    }
+}
+
+/// Get the full filesystem path for an asset
+#[command]
+pub async fn get_asset_path(
+    app: tauri::AppHandle,
+    relative_path: String,
+) -> Result<String, String> {
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    let file_path = app_data_dir.join("assets").join(&relative_path);
+    Ok(file_path.to_string_lossy().to_string())
 }

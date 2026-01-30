@@ -22,10 +22,15 @@ function handleGlobalError(error: AppError) {
 
 // Theme provider component
 function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme } = useAppearanceSettings();
+  const { theme, uiScale } = useAppearanceSettings();
 
   useEffect(() => {
     const root = document.documentElement;
+
+    // Apply UI scaling
+    // Standard base font-size is 16px (100%). We scale this percentage.
+    // Tailwind uses rems, so changing root font-size scales everything.
+    root.style.fontSize = `${(uiScale || 1.0) * 100}%`;
 
     // Remove existing theme classes
     root.classList.remove('light', 'dark');
@@ -46,7 +51,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.add(theme);
     }
-  }, [theme]);
+  }, [theme, uiScale]);
 
   return <>{children}</>;
 }

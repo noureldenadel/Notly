@@ -30,6 +30,11 @@ pub fn run() {
             commands::database::fts_index_entity,
             commands::database::fts_remove_entity,
             commands::database::fts_rebuild_index,
+            // Asset management commands
+            commands::database::get_assets_dir,
+            commands::database::copy_file_to_assets,
+            commands::database::delete_asset_file,
+            commands::database::get_asset_path,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

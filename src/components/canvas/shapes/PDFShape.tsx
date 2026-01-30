@@ -1,3 +1,4 @@
+import * as React from 'react';
 import {
     BaseBoxShapeUtil,
     HTMLContainer,
@@ -22,6 +23,49 @@ export type PDFShape = TLBaseShape<
 >;
 
 const PDF_FOOTER_HEIGHT = 50;
+
+// Helper component to resolve and display thumbnail
+function PDFThumbnailResolver({ path, pageNumber }: { path: string; pageNumber: number }) {
+    const [resolvedSrc, setResolvedSrc] = React.useState<string>('');
+
+    React.useEffect(() => {
+        let active = true;
+        const resolve = async () => {
+            try {
+                // If it's already a blob/data URL or http, use it
+                if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http')) {
+                    if (active) setResolvedSrc(path);
+                    return;
+                }
+
+                // Otherwise treat as relative asset path
+                const { getAssetUrl } = await import('@/lib/assetManager');
+                const url = await getAssetUrl(path);
+                if (active) setResolvedSrc(url);
+            } catch (e) {
+                console.error('Failed to resolve thumbnail:', e);
+            }
+        };
+        resolve();
+        return () => { active = false; };
+    }, [path]);
+
+    if (!resolvedSrc) return <div className="w-full h-full bg-muted animate-pulse" />;
+
+    return (
+        <img
+            src={resolvedSrc}
+            alt={`Page ${pageNumber}`}
+            draggable={false}
+            style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                userSelect: 'none',
+            }}
+        />
+    );
+}
 
 // PDF shape utility class
 export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
@@ -80,17 +124,7 @@ export class PDFShapeUtil extends BaseBoxShapeUtil<PDFShape> {
                     }}
                 >
                     {shape.props.thumbnailPath ? (
-                        <img
-                            src={shape.props.thumbnailPath}
-                            alt={`Page ${shape.props.pageNumber}`}
-                            draggable={false}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                userSelect: 'none',
-                            }}
-                        />
+                        <PDFThumbnailResolver path={shape.props.thumbnailPath} pageNumber={shape.props.pageNumber} />
                     ) : (
                         <svg
                             width="48"

@@ -222,6 +222,34 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                                         </SelectContent>
                                     </Select>
                                 </div>
+
+                                <Separator />
+
+                                {/* UI Scale */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label>UI Scale</Label>
+                                            <p className="text-sm text-muted-foreground">Adjust the interface size</p>
+                                        </div>
+                                        <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                                            {Math.round((appearance.uiScale || 1.0) * 100)}%
+                                        </span>
+                                    </div>
+                                    <Slider
+                                        value={[(appearance.uiScale || 1.0)]}
+                                        onValueChange={([value]) => updateAppearance({ uiScale: value })}
+                                        min={0.75}
+                                        max={1.25}
+                                        step={0.05}
+                                        className="py-1"
+                                    />
+                                    <div className="flex justify-between text-xs text-muted-foreground px-1">
+                                        <span>Smaller</span>
+                                        <span>Default</span>
+                                        <span>Larger</span>
+                                    </div>
+                                </div>
                             </div>
                         </ScrollArea>
                     </TabsContent>
@@ -472,15 +500,18 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                 </Tabs>
 
                 {/* Footer */}
-                <div className="flex justify-between pt-4 border-t">
-                    <Button variant="ghost" onClick={resetToDefaults}>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Reset to Defaults
-                    </Button>
+                <div className="flex justify-between items-center pt-4 border-t">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" onClick={resetToDefaults}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Reset to Defaults
+                        </Button>
+                        <span className="text-xs text-muted-foreground">v0.1.0</span>
+                    </div>
                     <Button onClick={() => onOpenChange(false)}>Done</Button>
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
 
