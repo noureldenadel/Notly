@@ -43,7 +43,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/notly.git
+   git clone https://github.com/noureldenadel/notly.git
    cd notly
    ```
 
@@ -173,7 +173,7 @@ A: Nōtly is currently local-first. You can manually export/import projects to t
 - **Performance Drop**: Large boards with >1000 items may slow down. Try grouping items or using multiple boards.
 
 ### How to get help
-Open an issue on the [GitHub Issues](https://github.com/your-username/notly/issues) page.
+Open an issue on the [GitHub Issues](https://github.com/noureldenadel/notly/issues) page.
 
 ---
 

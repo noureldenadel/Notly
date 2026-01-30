@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::command;
+use tauri::{command, Manager};
 
 // Project types
 #[derive(Debug, Clone, Serialize, Deserialize)]
