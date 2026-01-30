@@ -37,15 +37,79 @@ import {
 } from '@/stores';
 import type { AppearanceSettings, BehaviorSettings, BackupConfig } from '@/stores/settingsStore';
 
+const shortcutGroups = [
+    {
+        title: 'General',
+        shortcuts: [
+            { keys: 'Ctrl/⌘ + K', description: 'Open global search' },
+            { keys: 'Ctrl/⌘ + N', description: 'Create new card' },
+            { keys: 'Ctrl/⌘ + S', description: 'Save/sync changes' },
+            { keys: 'Ctrl/⌘ + ,', description: 'Open settings' },
+            { keys: '?', description: 'Show shortcuts' },
+            { keys: 'Escape', description: 'Deselect / Close modal' },
+        ],
+    },
+    {
+        title: 'Edit',
+        shortcuts: [
+            { keys: 'Ctrl/⌘ + Z', description: 'Undo' },
+            { keys: 'Ctrl/⌘ + Shift + Z', description: 'Redo' },
+            { keys: 'Ctrl/⌘ + D', description: 'Duplicate selected' },
+            { keys: 'Delete / Backspace', description: 'Delete selected' },
+            { keys: 'Ctrl/⌘ + A', description: 'Select all' },
+            { keys: 'Ctrl/⌘ + C', description: 'Copy' },
+            { keys: 'Ctrl/⌘ + V', description: 'Paste' },
+            { keys: 'Ctrl/⌘ + X', description: 'Cut' },
+        ],
+    },
+    {
+        title: 'Canvas Tools',
+        shortcuts: [
+            { keys: 'V', description: 'Select tool' },
+            { keys: 'H', description: 'Hand/pan tool' },
+            { keys: 'D', description: 'Draw tool' },
+            { keys: 'E', description: 'Eraser tool' },
+            { keys: 'A', description: 'Arrow tool' },
+            { keys: 'T', description: 'Text tool' },
+            { keys: 'F', description: 'Frame tool' },
+            { keys: 'C', description: 'Card tool' },
+            { keys: 'R', description: 'Rectangle tool' },
+            { keys: 'O', description: 'Ellipse tool' },
+            { keys: 'I', description: 'Insert Image' },
+            { keys: 'P', description: 'Insert PDF' },
+            { keys: 'M', description: 'Insert MindMap' },
+            { keys: 'S', description: 'Sticky Note' },
+        ],
+    },
+    {
+        title: 'View',
+        shortcuts: [
+            { keys: 'Ctrl/⌘ + +', description: 'Zoom in' },
+            { keys: 'Ctrl/⌘ + -', description: 'Zoom out' },
+            { keys: 'Ctrl/⌘ + 0', description: 'Reset zoom' },
+            { keys: 'Ctrl/⌘ + 1', description: 'Zoom to fit' },
+            { keys: 'F11 / Ctrl/⌘ + Enter', description: 'Start presentation' },
+        ],
+    },
+    {
+        title: 'Presentation',
+        shortcuts: [
+            { keys: '→ / Space', description: 'Next frame' },
+            { keys: '←', description: 'Previous frame' },
+            { keys: 'Escape', description: 'Exit presentation' },
+            { keys: 'L', description: 'Toggle laser pointer' },
+        ],
+    },
+];
+
 interface SettingsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    initialTab?: string;
 }
 
-
-
-export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState('appearance');
+export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }: SettingsModalProps) {
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const { appearance, behavior, backup, updateAppearance, updateBehavior, updateBackup, resetToDefaults } = useSettingsStore();
     const { backups, lastBackupTime, createBackup, restoreBackup, deleteBackup, clearOldBackups } = useBackupStore();
@@ -54,6 +118,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     useEffect(() => {
         clearOldBackups(backup.maxBackups);
     }, [backup.maxBackups, clearOldBackups]);
+
+    // Update active tab if initialTab changes while open
+    useEffect(() => {
+        if (open) {
+            setActiveTab(initialTab);
+        }
+    }, [open, initialTab]);
 
     const handleCreateBackup = useCallback(() => {
         createBackup();
@@ -100,7 +171,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         </TabsTrigger>
                     </TabsList>
 
-                    {/* Appearance Tab */}
                     {/* Appearance Tab */}
                     <TabsContent value="appearance" className="flex-1 overflow-hidden mt-2">
                         <ScrollArea className="h-full pr-4">
@@ -376,27 +446,26 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     {/* Shortcuts Tab */}
                     <TabsContent value="shortcuts" className="flex-1 overflow-hidden mt-2">
                         <ScrollArea className="h-full pr-4">
-                            <div className="space-y-3 pb-4">
-                                <ShortcutRow keys="Ctrl/⌘ + K" description="Open global search" />
-                                <ShortcutRow keys="Ctrl/⌘ + N" description="Create new card" />
-                                <ShortcutRow keys="Ctrl/⌘ + S" description="Save/sync changes" />
-                                <ShortcutRow keys="Ctrl/⌘ + Z" description="Undo" />
-                                <ShortcutRow keys="Ctrl/⌘ + Shift + Z" description="Redo" />
-                                <ShortcutRow keys="Ctrl/⌘ + D" description="Duplicate selected" />
-                                <ShortcutRow keys="Delete / Backspace" description="Delete selected" />
-                                <ShortcutRow keys="Escape" description="Deselect / Close modal" />
-                                <ShortcutRow keys="F11 / Ctrl/⌘ + Enter" description="Start presentation" />
-                                <ShortcutRow keys="Ctrl/⌘ + ," description="Open settings" />
-                                <ShortcutRow keys="?" description="Show shortcuts" />
-                                <Separator />
-                                <ShortcutRow keys="V" description="Select tool" />
-                                <ShortcutRow keys="H" description="Hand/pan tool" />
-                                <ShortcutRow keys="D" description="Draw tool" />
-                                <ShortcutRow keys="E" description="Eraser tool" />
-                                <ShortcutRow keys="A" description="Arrow tool" />
-                                <ShortcutRow keys="T" description="Text tool" />
-                                <ShortcutRow keys="F" description="Frame tool" />
-                                <ShortcutRow keys="C" description="Card tool" />
+                            <div className="space-y-6 pb-4">
+                                {shortcutGroups.map((group, index) => (
+                                    <div key={group.title} className="space-y-3">
+                                        <h3 className="font-semibold text-sm text-primary sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
+                                            {group.title}
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {group.shortcuts.map((shortcut) => (
+                                                <ShortcutRow
+                                                    key={shortcut.keys}
+                                                    keys={shortcut.keys}
+                                                    description={shortcut.description}
+                                                />
+                                            ))}
+                                        </div>
+                                        {index < shortcutGroups.length - 1 && (
+                                            <Separator className="mt-4" />
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </ScrollArea>
                     </TabsContent>

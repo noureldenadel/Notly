@@ -113,9 +113,22 @@ export function useKeyboardShortcuts(
             const combo = parseKeyCombo(shortcut.keys);
 
             if (matchesShortcut(event, combo)) {
-                // Skip if in input field unless it's global or escape
-                if (isInputField && shortcut.scope !== 'global' && combo.key !== 'escape') {
-                    continue;
+                // Determine if we should block this shortcut in an input field
+                if (isInputField) {
+                    // Always allow Escape
+                    if (combo.key === 'escape') {
+                        // proceed
+                    }
+                    // Allow shortcuts with modifiers (Ctrl/Cmd/Alt) in inputs if they are global
+                    // e.g. Ctrl+S, Ctrl+Z, Ctrl+K
+                    else if (shortcut.scope === 'global' && (combo.ctrl || combo.meta || combo.alt)) {
+                        // proceed
+                    }
+                    // BLOCK single letter shortcuts or unmodified shortcuts in inputs
+                    // e.g. 'v', 't', 'delete', 'backspace' (unless controlled explicitly)
+                    else {
+                        continue;
+                    }
                 }
 
                 if (shortcut.preventDefault !== false) {
@@ -149,10 +162,21 @@ export function createDefaultShortcuts(actions: {
     redo?: () => void;
     duplicate?: () => void;
     deleteSelected?: () => void;
+    selectAll?: () => void;
     deselect?: () => void;
     startPresentation?: () => void;
     openSettings?: () => void;
     showShortcuts?: () => void;
+    zoomIn?: () => void;
+    zoomOut?: () => void;
+    resetZoom?: () => void;
+    zoomToFit?: () => void;
+    insertImage?: () => void;
+    insertPDF?: () => void;
+    insertMindMap?: () => void;
+    copy?: () => void;
+    cut?: () => void;
+    paste?: () => void;
 }): Shortcut[] {
     const shortcuts: Shortcut[] = [];
 
@@ -216,6 +240,36 @@ export function createDefaultShortcuts(actions: {
         });
     }
 
+    if (actions.copy) {
+        shortcuts.push({
+            id: 'copy',
+            keys: 'ctrl+c',
+            description: 'Copy selected',
+            action: actions.copy,
+            scope: 'global',
+        });
+    }
+
+    if (actions.cut) {
+        shortcuts.push({
+            id: 'cut',
+            keys: 'ctrl+x',
+            description: 'Cut selected',
+            action: actions.cut,
+            scope: 'global',
+        });
+    }
+
+    if (actions.paste) {
+        shortcuts.push({
+            id: 'paste',
+            keys: 'ctrl+v',
+            description: 'Paste',
+            action: actions.paste,
+            scope: 'global',
+        });
+    }
+
     if (actions.deleteSelected) {
         shortcuts.push({
             id: 'delete',
@@ -233,6 +287,16 @@ export function createDefaultShortcuts(actions: {
         });
     }
 
+    if (actions.selectAll) {
+        shortcuts.push({
+            id: 'select-all',
+            keys: 'ctrl+a',
+            description: 'Select all',
+            action: actions.selectAll,
+            scope: 'canvas',
+        });
+    }
+
     if (actions.deselect) {
         shortcuts.push({
             id: 'deselect',
@@ -240,6 +304,53 @@ export function createDefaultShortcuts(actions: {
             description: 'Deselect / Close modal',
             action: actions.deselect,
             scope: 'global',
+        });
+    }
+
+    if (actions.zoomIn) {
+        shortcuts.push({
+            id: 'zoom-in',
+            keys: 'ctrl+=',
+            description: 'Zoom in',
+            action: actions.zoomIn,
+            scope: 'canvas',
+        });
+        shortcuts.push({
+            id: 'zoom-in-plus',
+            keys: 'ctrl++',
+            description: 'Zoom in',
+            action: actions.zoomIn,
+            scope: 'canvas',
+        });
+    }
+
+    if (actions.zoomOut) {
+        shortcuts.push({
+            id: 'zoom-out',
+            keys: 'ctrl+-',
+            description: 'Zoom out',
+            action: actions.zoomOut,
+            scope: 'canvas',
+        });
+    }
+
+    if (actions.resetZoom) {
+        shortcuts.push({
+            id: 'reset-zoom',
+            keys: 'ctrl+0',
+            description: 'Reset zoom',
+            action: actions.resetZoom,
+            scope: 'canvas',
+        });
+    }
+
+    if (actions.zoomToFit) {
+        shortcuts.push({
+            id: 'zoom-to-fit',
+            keys: 'ctrl+1',
+            description: 'Zoom to fit',
+            action: actions.zoomToFit,
+            scope: 'canvas',
         });
     }
 
@@ -279,9 +390,41 @@ export function createDefaultShortcuts(actions: {
             scope: 'global',
             preventDefault: false, // Don't prevent ? in inputs
         });
+        // Also support Shift+/ which is ? on most keyboards without needing to hold shift if we parse it right
+        // But our parser is simple. Let's just catch ? 
+    }
+
+    // Tools that are actions
+    if (actions.insertImage) {
+        shortcuts.push({ id: 'insert-image', keys: 'i', description: 'Insert Image', action: actions.insertImage, scope: 'global' });
+    }
+    if (actions.insertPDF) {
+        shortcuts.push({ id: 'insert-pdf', keys: 'p', description: 'Insert PDF', action: actions.insertPDF, scope: 'global' });
+    }
+    if (actions.insertMindMap) {
+        shortcuts.push({ id: 'insert-mindmap', keys: 'm', description: 'Insert MindMap', action: actions.insertMindMap, scope: 'global' });
     }
 
     return shortcuts;
+}
+
+/**
+ * Helper to create tool shortcuts
+ */
+export function createToolShortcuts(setTool: (toolId: string) => void): Shortcut[] {
+    return [
+        { id: 'tool-select', keys: 'v', description: 'Select tool', action: () => setTool('select'), scope: 'global' },
+        { id: 'tool-hand', keys: 'h', description: 'Hand tool', action: () => setTool('hand'), scope: 'global' },
+        { id: 'tool-draw', keys: 'd', description: 'Draw tool', action: () => setTool('draw'), scope: 'global' },
+        { id: 'tool-eraser', keys: 'e', description: 'Eraser tool', action: () => setTool('eraser'), scope: 'global' },
+        { id: 'tool-arrow', keys: 'a', description: 'Arrow tool', action: () => setTool('arrow'), scope: 'global' },
+        { id: 'tool-text', keys: 't', description: 'Text tool', action: () => setTool('text'), scope: 'global' },
+        { id: 'tool-frame', keys: 'f', description: 'Frame tool', action: () => setTool('frame'), scope: 'global' },
+        { id: 'tool-card', keys: 'c', description: 'Card tool', action: () => setTool('card'), scope: 'global' },
+        { id: 'tool-rectangle', keys: 'r', description: 'Rectangle tool', action: () => setTool('rectangle'), scope: 'global' },
+        { id: 'tool-ellipse', keys: 'o', description: 'Ellipse tool', action: () => setTool('ellipse'), scope: 'global' },
+        { id: 'tool-sticky', keys: 's', description: 'Sticky Note tool', action: () => setTool('sticky'), scope: 'global' },
+    ];
 }
 
 export default useKeyboardShortcuts;

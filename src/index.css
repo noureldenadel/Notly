@@ -280,9 +280,9 @@
   --color-text: hsl(var(--foreground));
   --color-muted-1: hsl(var(--muted-foreground));
 
-  /* Use Inter for sans and serif, keep draw font as-is for handwritten style option */
+  /* Use Inter for sans, standard serif for serif, keep draw font as-is for handwritten style option */
   --tl-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --tl-font-serif: 'Inter', system-ui, -apple-system, sans-serif;
+  --tl-font-serif: 'Georgia', 'Times New Roman', serif;
   --tl-font-mono: 'JetBrains Mono', monospace;
 }
 

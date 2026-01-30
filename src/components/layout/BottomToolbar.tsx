@@ -105,12 +105,14 @@ export const BottomToolbar = ({
 
     // Special handling for card - creates card at viewport center
     if (toolId === 'card') {
+      onToolChange('card');
       onInsertCard();
       return;
     }
 
     // Special handling for mind map - creates mind map at viewport center
     if (toolId === 'mindmap') {
+      onToolChange('mindmap');
       onInsertMindMap();
       return;
     }

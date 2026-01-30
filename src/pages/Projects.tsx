@@ -34,7 +34,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { ImportExportModal } from "@/components/modals/ImportExportModal";
-import { ShortcutsCheatsheet } from "@/components/modals/ShortcutsCheatsheet";
+
 
 type SortOption = "lastViewed" | "name" | "created";
 type ViewMode = "grid" | "list";
@@ -434,10 +434,7 @@ const Projects = () => {
                 open={settingsOpen}
                 onOpenChange={setSettingsOpen}
             />
-            <ShortcutsCheatsheet
-                open={shortcutsOpen}
-                onOpenChange={setShortcutsOpen}
-            />
+
             <ImportExportModal
                 open={importExportOpen}
                 onOpenChange={setImportExportOpen}

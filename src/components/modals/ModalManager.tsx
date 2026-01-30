@@ -1,7 +1,7 @@
 import { useUIStore, useCardStore } from "@/stores";
 import { useEditor } from "@/hooks/useEditorContext";
 import { SettingsModal } from "@/components/settings";
-import { ImportExportModal, ShortcutsCheatsheet } from "@/components/modals";
+import { ImportExportModal } from "@/components/modals";
 import { PDFViewerModal } from "@/components/pdf";
 import { GlobalSearch } from "@/components/search";
 import { CardEditorModal } from "@/components/editor";
@@ -15,8 +15,9 @@ export const ModalManager = () => {
     return (
         <>
             <SettingsModal
-                open={modal.isOpen && modal.type === 'settings'}
+                open={modal.isOpen && (modal.type === 'settings' || modal.type === 'shortcuts')}
                 onOpenChange={(open) => !open && handleClose()}
+                initialTab={modal.type === 'shortcuts' ? 'shortcuts' : 'appearance'}
             />
 
             <ImportExportModal
@@ -24,10 +25,7 @@ export const ModalManager = () => {
                 onOpenChange={(open) => !open && handleClose()}
             />
 
-            <ShortcutsCheatsheet
-                open={modal.isOpen && modal.type === 'shortcuts'}
-                onOpenChange={(open) => !open && handleClose()}
-            />
+            {/* ShortcutsCheatsheet removed as it is now part of Settings */}
 
             <GlobalSearch
                 isOpen={modal.isOpen && modal.type === 'search'}

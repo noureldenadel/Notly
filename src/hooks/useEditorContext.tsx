@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Editor, AssetRecordType } from 'tldraw';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { Editor, AssetRecordType, TLShapeId, createShapeId } from 'tldraw';
 import { nanoid } from 'nanoid';
 import { useCardStore } from '@/stores';
 import { createDefaultMindMap } from '@/components/canvas/shapes/MindMapShape';
+import { PDF_FOOTER_HEIGHT } from '@/components/canvas/shapes/PDFShape';
 import { createLogger } from '@/lib/logger';
+
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
 import { getViewportCenter } from '@/lib/canvasUtils';
 
@@ -97,7 +99,15 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Cancel placement mode
+    const cancelPlacement = useCallback(() => {
+        setPlacementMode(null);
+    }, []);
+
     const setTool = useCallback((toolId: string) => {
+        // Find existing setTool and add cancelPlacement()
+        cancelPlacement();
+
         if (!editor) return;
 
         // Skip action tools - they have their own handlers
@@ -121,11 +131,13 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         } else {
             editor.setCurrentTool(tldrawTool);
         }
-    }, [editor]);
+    }, [editor, cancelPlacement]);
 
     // Insert image via file dialog
     const insertImage = useCallback(() => {
         log.debug('insertImage called, editor:', !!editor);
+        cancelPlacement(); // Ensure we exit any placement mode
+        if (editor) editor.setCurrentTool('select'); // Force select tool
 
         // Create file input element
         const input = document.createElement('input');
@@ -183,7 +195,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                         const { x, y } = getViewportCenter(editor, scaledWidth, scaledHeight);
 
                         // Create image shape at center of viewport
+                        const shapeId = createShapeId();
                         editor.createShape({
+                            id: shapeId,
                             type: 'image',
                             x,
                             y,
@@ -193,6 +207,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                                 h: scaledHeight,
                             },
                         });
+
+                        // Auto-select the new image
+                        editor.select(shapeId);
                     };
                     reader.readAsDataURL(file);
                 } catch (error) {
@@ -202,11 +219,13 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         };
 
         input.click();
-    }, [editor]);
+    }, [editor, cancelPlacement]);
 
     // Insert PDF via file dialog
     const insertPDF = useCallback(() => {
         log.debug('insertPDF called, editor:', !!editor);
+        cancelPlacement(); // Ensure we exit any placement mode
+        if (editor) editor.setCurrentTool('select'); // Force select tool
 
         // Create file input element
         const input = document.createElement('input');
@@ -240,9 +259,10 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
                 // Generate thumbnail of first page
                 let thumbnailPath = '';
+                let viewport = null;
                 try {
                     const page = await pdf.getPage(1);
-                    const viewport = page.getViewport({ scale: 0.5 });
+                    viewport = page.getViewport({ scale: 0.5 });
                     const canvas = document.createElement('canvas');
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
@@ -260,17 +280,29 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     log.warn('Failed to generate thumbnail:', thumbError);
                 }
 
+                // Calculate dimensions based on page aspect ratio
+                // Default to A4 ratio (1 / 1.414) if calculation fails
+                const pageAspectRatio = (viewport && viewport.width && viewport.height)
+                    ? viewport.width / viewport.height
+                    : 1 / 1.414;
+
+                const width = SHAPE_DEFAULTS.PDF.WIDTH;
+                const contentHeight = width / pageAspectRatio;
+                const totalHeight = contentHeight + PDF_FOOTER_HEIGHT;
+
                 // Get center of viewport for placement
-                const { x, y } = getViewportCenter(editor, SHAPE_DEFAULTS.PDF.WIDTH, SHAPE_DEFAULTS.PDF.HEIGHT);
+                const { x, y } = getViewportCenter(editor, width, totalHeight);
 
                 // Create PDF shape with actual metadata
+                const shapeId = createShapeId();
                 editor.createShape({
+                    id: shapeId,
                     type: 'pdf',
                     x,
                     y,
                     props: {
-                        w: SHAPE_DEFAULTS.PDF.WIDTH,
-                        h: SHAPE_DEFAULTS.PDF.HEIGHT,
+                        w: width,
+                        h: totalHeight,
                         fileId: String(objectUrl || ''),
                         filename: String(file.name || 'Document.pdf'),
                         pageNumber: 1,
@@ -279,6 +311,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                     },
                 });
 
+                // Auto-select the new PDF
+                editor.select(shapeId);
+
                 log.debug('PDF shape created successfully with', totalPages, 'pages');
             } catch (error) {
                 log.error('Failed to insert PDF:', error);
@@ -286,118 +321,101 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         };
 
         input.click();
-    }, [editor]);
+    }, [editor, cancelPlacement]);
 
-    // Insert card with click-to-place
+    // Placement Logic - Event Listeners & Cursor
+    useEffect(() => {
+        if (!editor || !placementMode) return;
+
+        // Setup cursor
+        editor.setCursor({ type: 'cross', rotation: 0 });
+
+        const onPointerDown = (info: any) => {
+            if (info.name === 'pointer_down' && info.button === 0) {
+                const screenPoint = editor.inputs.currentScreenPoint;
+                const pagePoint = editor.screenToPage(screenPoint);
+
+                if (placementMode === 'card') {
+                    const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
+                    editor.createShape({
+                        type: 'card',
+                        x: pagePoint.x - SHAPE_DEFAULTS.CARD.WIDTH / 2,
+                        y: pagePoint.y - SHAPE_DEFAULTS.CARD.HEIGHT / 2,
+                        props: {
+                            w: SHAPE_DEFAULTS.CARD.WIDTH,
+                            h: SHAPE_DEFAULTS.CARD.HEIGHT,
+                            cardId: card.id || '',
+                            title: card.title || 'New Card',
+                            content: card.content || '',
+                            color: card.color || COLORS.DEFAULT_CARD,
+                            isEditing: false,
+                        },
+                    });
+                    log.debug('Card created at', pagePoint);
+                } else if (placementMode === 'mindmap') {
+                    editor.createShape({
+                        type: 'mindmap',
+                        x: pagePoint.x - SHAPE_DEFAULTS.MINDMAP.WIDTH / 2,
+                        y: pagePoint.y - SHAPE_DEFAULTS.MINDMAP.HEIGHT / 2,
+                        props: {
+                            w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
+                            h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
+                            rootNode: createDefaultMindMap('Main Topic'),
+                            layout: 'horizontal',
+                            theme: 'default',
+                        },
+                    });
+                    log.debug('Mindmap created at', pagePoint);
+                }
+
+                // Reset after placement
+                setPlacementMode(null);
+            }
+        };
+
+        editor.on('event', onPointerDown);
+
+        return () => {
+            editor.off('event', onPointerDown);
+            editor.setCursor({ type: 'default', rotation: 0 });
+        };
+    }, [editor, placementMode]);
+
+    // Monitor for external tool switches to cancel placement
+    useEffect(() => {
+        if (!editor) return;
+
+        const handleToolChange = () => {
+            const currentTool = editor.getCurrentToolId();
+            // If manual switch to something other than select (like Draw, Hand, etc.), cancel our placement
+            if (placementMode && currentTool !== 'select') {
+                setPlacementMode(null);
+            }
+        };
+
+        editor.on('change', handleToolChange);
+        return () => {
+            editor.off('change', handleToolChange);
+        };
+    }, [editor, placementMode]);
+
+    // Insert card - Imperatively switch tool
     const insertCard = useCallback(() => {
-        log.debug('insertCard called, editor:', !!editor);
-        if (!editor) {
-            log.error('No editor available for card insert');
-            return;
-        }
-
-        // Set placement mode and cursor
+        if (!editor) return;
+        // Immediately force Select tool to kill any current tool (sticky, draw, etc.)
+        editor.setCurrentTool('select');
         setPlacementMode('card');
-        editor.setCursor({ type: 'cross', rotation: 0 });
-
-        // One-time pointer down handler
-        const onPointerDown = (info: any) => {
-            // Only handle left click on canvas
-            if (info.name === 'pointer_down' && info.button === 0) {
-                // Convert screen point to page coordinates (fixes zoom issue)
-                const screenPoint = editor.inputs.currentScreenPoint;
-                const pagePoint = editor.screenToPage(screenPoint);
-
-                // Create card in store
-                const card = useCardStore.getState().createCard('', 'New Card', COLORS.DEFAULT_CARD);
-
-                // Create card shape centered on click
-                editor.createShape({
-                    type: 'card',
-                    x: pagePoint.x - SHAPE_DEFAULTS.CARD.WIDTH / 2,
-                    y: pagePoint.y - SHAPE_DEFAULTS.CARD.HEIGHT / 2,
-                    props: {
-                        w: SHAPE_DEFAULTS.CARD.WIDTH,
-                        h: SHAPE_DEFAULTS.CARD.HEIGHT,
-                        cardId: card.id,
-                        title: card.title || 'New Card',
-                        content: card.content,
-                        color: card.color || COLORS.DEFAULT_CARD,
-                        isEditing: false,
-                    },
-                });
-
-                log.debug('Card created at page coords:', pagePoint.x, pagePoint.y);
-                cleanup();
-            }
-        };
-
-        const cleanup = () => {
-            editor.setCursor({ type: 'default', rotation: 0 });
-            editor.off('event', onPointerDown);
-            setPlacementMode(null);
-            placementCleanupRef.current = null;
-        };
-
-        // Store cleanup ref for cancel
-        placementCleanupRef.current = cleanup;
-        editor.on('event', onPointerDown);
     }, [editor]);
 
-    // Insert mind map with click-to-place
+    // Insert mind map - Imperatively switch tool
     const insertMindMap = useCallback(() => {
-        log.debug('insertMindMap called, editor:', !!editor);
-        if (!editor) {
-            log.error('No editor available for mind map insert');
-            return;
-        }
-
-        // Set placement mode and cursor
+        if (!editor) return;
+        // Immediately force Select tool
+        editor.setCurrentTool('select');
         setPlacementMode('mindmap');
-        editor.setCursor({ type: 'cross', rotation: 0 });
-
-        const onPointerDown = (info: any) => {
-            if (info.name === 'pointer_down' && info.button === 0) {
-                // Convert screen point to page coordinates (fixes zoom issue)
-                const screenPoint = editor.inputs.currentScreenPoint;
-                const pagePoint = editor.screenToPage(screenPoint);
-
-                // Create mind map shape centered on click
-                editor.createShape({
-                    type: 'mindmap',
-                    x: pagePoint.x - SHAPE_DEFAULTS.MINDMAP.WIDTH / 2,
-                    y: pagePoint.y - SHAPE_DEFAULTS.MINDMAP.HEIGHT / 2,
-                    props: {
-                        w: SHAPE_DEFAULTS.MINDMAP.WIDTH,
-                        h: SHAPE_DEFAULTS.MINDMAP.HEIGHT,
-                        rootNode: createDefaultMindMap('Main Topic'),
-                        layout: 'horizontal',
-                        theme: 'default',
-                    },
-                });
-
-                log.debug('Mind map created at page coords:', pagePoint.x, pagePoint.y);
-                cleanup();
-            }
-        };
-
-        const cleanup = () => {
-            editor.setCursor({ type: 'default', rotation: 0 });
-            editor.off('event', onPointerDown);
-            setPlacementMode(null);
-            placementCleanupRef.current = null;
-        };
-
-        placementCleanupRef.current = cleanup;
-        editor.on('event', onPointerDown);
     }, [editor]);
 
-    // Cancel placement mode
-    const cancelPlacement = useCallback(() => {
-        if (placementCleanupRef.current) {
-            placementCleanupRef.current();
-        }
-    }, []);
+
 
     const undo = useCallback(() => {
         if (editor?.getCanUndo()) {

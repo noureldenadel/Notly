@@ -186,7 +186,7 @@ export const TopBar = ({
   };
 
   return (
-    <div className="h-11 bg-card border-b border-border flex items-center px-3 gap-3">
+    <div className="h-11 bg-card border-b border-border flex items-center px-3 gap-3 relative z-40">
       {/* Home Button */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -455,10 +455,6 @@ export const TopBar = ({
             <DropdownMenuItem onClick={onSettingsClick}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onShortcutsClick}>
-              <Keyboard className="w-4 h-4 mr-2" />
-              Keyboard Shortcuts
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onImportExportClick}>
