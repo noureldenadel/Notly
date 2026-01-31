@@ -27,14 +27,22 @@ export const AppInitializer = () => {
 
         async function initApp() {
             log.debug('Initializing app...');
-            await initPersistence();
 
-            // Load all stores in parallel
-            await Promise.all([
-                !projectsLoaded && loadProjects(),
-                !cardsLoaded && loadCards(),
-                !filesLoaded && loadFiles(),
-            ]);
+            try {
+                await initPersistence();
+            } catch (e) {
+                log.error('Error initializing persistence:', e);
+            }
+
+            try {
+                await Promise.all([
+                    !projectsLoaded && loadProjects(),
+                    !cardsLoaded && loadCards(),
+                    !filesLoaded && loadFiles(),
+                ]);
+            } catch (e) {
+                log.error('Error loading stores:', e);
+            }
 
             // Validate that active project actually exists after loading
             const state = useProjectStore.getState();
@@ -65,16 +73,7 @@ export const AppInitializer = () => {
     useEffect(() => {
         setOpenCardEditorHandler((cardId, shapeId) => {
             log.debug('Opening card editor:', cardId);
-            openModal('card-editor', {
-                cardId,
-                shapeId,
-                // We can pass a callback here if needed, but functions in state are tricky with persistence.
-                // However, uiStore persistence blacklist might allow it, or we just pass the ID and handle logic elsewhere?
-                // Ideally, the CardEditorModal should handle the logic itself or we use a custom event.
-                // For now, let's assume we can refetch the shape editor from context or simple pass logic.
-                // Wait, functions in Zustand state (especially if persisted) are bad practice.
-                // But uiStore creates a ephemeral modal state.
-            });
+            openModal('card-editor', { cardId, shapeId });
         });
 
         return () => setOpenCardEditorHandler(null);

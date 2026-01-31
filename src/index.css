@@ -108,6 +108,19 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    /* Disable text selection for native app feel */
+    user-select: none;
+    -webkit-user-select: none;
+    /* Disable context menu highlight on click */
+    -webkit-tap-highlight-color: transparent;
+    /* Disable text dragging */
+    -webkit-user-drag: none;
+  }
+
+  /* Allow text selection in specific elements where it makes sense */
+  input, textarea, [contenteditable="true"], .selectable {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   /* Custom scrollbar */
