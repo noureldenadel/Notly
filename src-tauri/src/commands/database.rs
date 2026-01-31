@@ -42,7 +42,8 @@ pub struct Card {
     pub metadata: Option<String>,
 }
 
-// File types
+// File types (reserved for future use)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileEntry {
     pub id: String,
@@ -58,16 +59,6 @@ pub struct FileEntry {
     pub metadata: Option<String>,
 }
 
-// Tag types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Tag {
-    pub id: String,
-    pub name: String,
-    pub color: Option<String>,
-    pub group_id: Option<String>,
-    pub position: i32,
-    pub created_at: i64,
-}
 
 // Database initialization command
 #[command]
@@ -276,8 +267,6 @@ pub struct FTSSearchResult {
 pub async fn fts_search(
     query: String,
     types: Vec<String>,
-    date_from: Option<i64>,
-    date_to: Option<i64>,
     limit: Option<i32>,
 ) -> Result<Vec<FTSSearchResult>, String> {
     log::info!("FTS5 search: '{}', types: {:?}, limit: {:?}", query, types, limit);
@@ -294,9 +283,9 @@ pub async fn fts_search(
 pub async fn fts_index_entity(
     entity_type: String,
     entity_id: String,
-    title: String,
-    content: String,
-    tags: String,
+    _title: String,
+    _content: String,
+    _tags: String,
 ) -> Result<bool, String> {
     log::info!("FTS5 indexing: {} {}", entity_type, entity_id);
     

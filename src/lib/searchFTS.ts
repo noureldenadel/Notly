@@ -18,8 +18,6 @@ export interface FTSSearchResult {
 
 export interface FTSSearchFilters {
     types?: string[];
-    dateFrom?: number;
-    dateTo?: number;
     limit?: number;
 }
 
@@ -46,8 +44,6 @@ export async function ftsSearch(
         const results = await invoke<FTSSearchResult[]>('fts_search', {
             query: query.trim(),
             types: filters.types || [],
-            dateFrom: filters.dateFrom,
-            dateTo: filters.dateTo,
             limit: filters.limit || 50,
         });
 
