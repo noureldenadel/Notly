@@ -95,6 +95,21 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
 
 
+    const [currentUiTool, setCurrentUiTool] = useState<string>('select');
+    const currentUiToolRef = React.useRef<string>('select');
+    const toolStyles = React.useRef<Record<string, any>>({});
+
+    // Helper to get UI tool ID from editor state
+    const getUiToolId = useCallback((editor: Editor) => {
+        const tldrawToolId = editor.getCurrentToolId();
+        if (tldrawToolId === 'note') return 'sticky';
+        if (tldrawToolId === 'geo') {
+            const styles = editor.getInstanceState().stylesForNextShape;
+            return styles['tldraw:geo'] === 'ellipse' ? 'ellipse' : 'rectangle';
+        }
+        return tldrawToolId;
+    }, []);
+
     const setTool = useCallback((toolId: string) => {
         if (!editor) return;
 
@@ -103,23 +118,75 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        const currentStyles = editor.getInstanceState().stylesForNextShape;
+
+        // Save current styles for the previous tool (using Ref for most up-to-date value)
+        if (currentUiToolRef.current) {
+            toolStyles.current[currentUiToolRef.current] = { ...currentStyles };
+        }
+
         const tldrawTool = TOOL_MAP[toolId] || 'select';
 
+        // Update local state for tracking
+        setCurrentUiTool(toolId);
+        currentUiToolRef.current = toolId;
+
+        // Prepare styles for the new tool
+        let nextStyles = { ...currentStyles }; // Default to current if no saved history
+
+        // If we have saved styles for this specific tool, restore them
+        if (toolStyles.current[toolId]) {
+            nextStyles = { ...toolStyles.current[toolId] };
+        }
+
         // Handle geo shapes - need to set the specific geo shape type
+        // We must merge this *after* restoring styles to ensure the shape type is correct
         if (toolId === 'rectangle' || toolId === 'ellipse') {
-            // Access the internal styles directly via updateInstanceState
-            const currentStyles = editor.getInstanceState().stylesForNextShape;
+            nextStyles['tldraw:geo'] = toolId === 'ellipse' ? 'ellipse' : 'rectangle';
+
             editor.updateInstanceState({
-                stylesForNextShape: {
-                    ...currentStyles,
-                    'tldraw:geo': toolId === 'ellipse' ? 'ellipse' : 'rectangle',
-                },
+                stylesForNextShape: nextStyles,
             });
             editor.setCurrentTool('geo');
         } else {
+            // Restore styles for other tools
+            editor.updateInstanceState({
+                stylesForNextShape: nextStyles,
+            });
             editor.setCurrentTool(tldrawTool);
         }
     }, [editor]);
+
+    // Sync currentUiTool with editor changes (handles implicit switches like auto-select)
+    useEffect(() => {
+        if (!editor) return;
+
+        const handleChange = () => {
+            const actualTool = getUiToolId(editor);
+
+            // If the tool effectively changed and it wasn't our doing (mismatch with Ref)
+            if (actualTool !== currentUiToolRef.current) {
+                // Determine if this is a "valid" tool we track
+                // If we switched to something we don't track, maybe we shouldn't save?
+                // But generally we want to save where we left off.
+
+                // Save styles for the tool we are implicitly leaving
+                const currentStyles = editor.getInstanceState().stylesForNextShape;
+                if (currentUiToolRef.current) {
+                    toolStyles.current[currentUiToolRef.current] = { ...currentStyles };
+                }
+
+                // Update our tracker
+                currentUiToolRef.current = actualTool;
+                setCurrentUiTool(actualTool);
+            }
+        };
+
+        editor.on('change', handleChange);
+        return () => {
+            editor.off('change', handleChange);
+        };
+    }, [editor, getUiToolId]);
 
     // Insert image via file dialog
     const insertImage = useCallback(() => {

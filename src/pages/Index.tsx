@@ -9,7 +9,7 @@ import { CanvasArea } from "@/components/canvas/CanvasArea";
 import { EditorProvider, useEditor } from "@/hooks/useEditorContext";
 import { DndProvider, DraggableItem, CanvasDropZone } from "@/components/dnd";
 import { useUIStore, useProjectStore, useCardStore, usePresentationStore } from "@/stores";
-import { createCardOnCanvas } from "@/components/canvas/TldrawWrapper";
+import { createCardOnCanvas } from "@/components/canvas/tldrawUtils";
 import { PresentationMode } from "@/components/presentation";
 import { useKeyboardShortcuts, createDefaultShortcuts, createToolShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useToast } from "@/hooks/use-toast";

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Editor, getSnapshot, loadSnapshot } from 'tldraw';
 import { TldrawWrapper } from './TldrawWrapper';
+import { patchAssetsInSnapshot } from './tldrawUtils';
 import { useProjectStore } from '@/stores';
 import { useEditor } from '@/hooks/useEditorContext';
 import { createLogger } from '@/lib/logger';
-import { THUMBNAIL, STORAGE_KEYS } from '@/lib/constants';
+import { THUMBNAIL } from '@/lib/constants';
 
 const log = createLogger('CanvasArea');
 
@@ -12,24 +13,58 @@ interface CanvasAreaProps {
   boardId?: string;
 }
 
-// Helper to get storage key for a board
-const getBoardStorageKey = (boardId: string) => `${STORAGE_KEYS.BOARD_PREFIX}${boardId}`;
+// Sanitize snapshot before saving: remove absolute paths (src) from assets
+// to ensure portability. We only keep 'meta.relativePath'.
+const sanitizeSnapshot = (snapshotObj: any) => {
+  if (!snapshotObj || !snapshotObj.store) return snapshotObj;
 
-// Save board snapshot to localStorage
-const saveBoardSnapshot = (boardId: string, snapshot: string) => {
+  const store = snapshotObj.store;
+  // Clone to avoid mutating original state if it's being used elsewhere
+  const cleanStore: Record<string, any> = {};
+
+  Object.keys(store).forEach(key => {
+    const record = { ...store[key] };
+
+    // If it's an image asset with a relativePath, strip the 'src'
+    // This forces the app to re-resolve the URL from relativePath on load
+    if (record.typeName === 'asset' && record.type === 'image' && record.meta?.relativePath) {
+      // We keep the src empty or a placeholder. 
+      // On load, patchAssetsInSnapshot will fill it back in.
+      // Note: Tldraw might want specific fields, but usually src is required. 
+      // We can set it to a placeholder or empty string.
+      record.props = { ...record.props, src: '' };
+    }
+
+    cleanStore[key] = record;
+  });
+
+  return { ...snapshotObj, store: cleanStore };
+};
+
+// Save board snapshot to Persistence (SQLite)
+const saveBoardSnapshot = async (boardId: string, snapshot: string) => {
   try {
-    localStorage.setItem(getBoardStorageKey(boardId), snapshot);
+    const { getPersistence } = await import('@/lib/persistence');
+    const p = await getPersistence();
+
+    // Parse, sanitize, stringify
+    const snapshotObj = JSON.parse(snapshot);
+    const cleanSnapshot = sanitizeSnapshot(snapshotObj);
+
+    await p.saveCanvasSnapshot(boardId, JSON.stringify(cleanSnapshot));
   } catch (e) {
-    log.warn('Failed to save board snapshot:', e);
+    log.error('Failed to save board snapshot:', e);
   }
 };
 
-// Load board snapshot from localStorage
-const loadBoardSnapshot = (boardId: string): string | null => {
+// Load board snapshot from Persistence (SQLite)
+const loadBoardSnapshot = async (boardId: string): Promise<string | null> => {
   try {
-    return localStorage.getItem(getBoardStorageKey(boardId));
+    const { getPersistence } = await import('@/lib/persistence');
+    const p = await getPersistence();
+    return await p.loadCanvasSnapshot(boardId);
   } catch (e) {
-    log.warn('Failed to load board snapshot:', e);
+    log.error('Failed to load board snapshot:', e);
     return null;
   }
 };
@@ -59,6 +94,11 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
     }
 
     const shapeIds = shapesInView.map(s => s.id);
+
+    // Validate viewport bounds - prevent capturing if too small (can cause SVG errors)
+    if (viewportBounds.w < 1 || viewportBounds.h < 1) {
+      return null;
+    }
 
     // Get SVG element with bounds matching the viewport (preserves zoom level)
     const svgResult = await editor.getSvgElement(shapeIds, {
@@ -162,42 +202,40 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
       if (editorRef.current && currentBoardId) {
         const editor = editorRef.current;
 
-        // Synchronously save snapshot
+        // Synchronously save snapshot (best effort during unload)
         const snapshot = getSnapshot(editor.store);
+        // Note: Async calls in beforeunload are effectively cancelled, but we try anyway
+        // For robustness, we rely mostly on the auto-save interval
         saveBoardSnapshot(currentBoardId, JSON.stringify(snapshot));
         log.debug('Saved snapshot on beforeunload');
-
-        // Capture thumbnail synchronously (best effort)
-        if (activeProjectId) {
-          captureCanvasThumbnail(editor).then((thumbnail) => {
-            if (thumbnail) {
-              updateProject(activeProjectId, { thumbnailPath: thumbnail });
-              log.debug('Saved thumbnail on beforeunload');
-            }
-          });
-        }
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [currentBoardId, activeProjectId, updateProject]);
+  }, [currentBoardId]);
 
   // Handle editor ready
-  const handleEditorReady = useCallback((ed: Editor) => {
+  const handleEditorReady = useCallback(async (ed: Editor) => {
     editorRef.current = ed;
     setEditor(ed);
 
-    // Load saved snapshot for this board
-    const savedSnapshot = loadBoardSnapshot(currentBoardId);
+    // Load saved snapshot for this board from SQLite
+    const savedSnapshot = await loadBoardSnapshot(currentBoardId);
     if (savedSnapshot) {
       try {
         const parsed = JSON.parse(savedSnapshot);
+
+        // Patch asset URLs (restore images from relative paths)
+        await patchAssetsInSnapshot(parsed);
+
         loadSnapshot(ed.store, parsed);
-        log.debug('Loaded snapshot for board:', currentBoardId);
+        log.debug('Loaded snapshot for board from DB:', currentBoardId);
       } catch (e) {
         log.warn('Failed to parse saved snapshot:', e);
       }
+    } else {
+      log.debug('No saved snapshot found for board:', currentBoardId);
     }
 
     log.debug('Editor ready for board:', currentBoardId);
@@ -208,7 +246,7 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
 
   // Handle snapshot changes (for auto-save)
   const handleSnapshotChange = useCallback((snapshot: string) => {
-    // Auto-save snapshot to localStorage
+    // Auto-save snapshot to SQLite
     saveBoardSnapshot(currentBoardId, snapshot);
 
     // Debounced thumbnail capture (wait 2 seconds after last change)

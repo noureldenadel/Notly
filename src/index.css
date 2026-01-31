@@ -118,7 +118,10 @@
   }
 
   /* Allow text selection in specific elements where it makes sense */
-  input, textarea, [contenteditable="true"], .selectable {
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectable {
     user-select: text;
     -webkit-user-select: text;
   }
@@ -364,4 +367,9 @@ div[data-testid="watermark"] {
   height: 0 !important;
   width: 0 !important;
   overflow: hidden !important;
+}
+
+/* Hide tldraw UI via CSS (instead of hideUi prop) to preserve keyboard shortcuts */
+.tldraw-hide-ui .tlui-layout {
+  display: none !important;
 }

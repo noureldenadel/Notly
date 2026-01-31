@@ -1,5 +1,7 @@
 mod commands;
 
+use tauri::menu::{MenuBuilder, SubmenuBuilder, PredefinedMenuItem};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -7,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             // Database commands
             commands::database::init_database,
@@ -38,6 +41,25 @@ pub fn run() {
             commands::database::save_bytes_to_assets,
         ])
         .setup(|app| {
+            // Create Edit menu with clipboard accelerators
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&PredefinedMenuItem::undo(app, Some("Undo"))?)
+                .item(&PredefinedMenuItem::redo(app, Some("Redo"))?)
+                .separator()
+                .item(&PredefinedMenuItem::cut(app, Some("Cut"))?)
+                .item(&PredefinedMenuItem::copy(app, Some("Copy"))?)
+                .item(&PredefinedMenuItem::paste(app, Some("Paste"))?)
+                .separator()
+                .item(&PredefinedMenuItem::select_all(app, Some("Select All"))?)
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&edit_menu)
+                .build()?;
+
+            // Set the menu for all windows
+            app.set_menu(menu)?;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

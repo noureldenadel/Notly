@@ -125,6 +125,20 @@ export async function getAssetsDir(): Promise<string> {
 }
 
 /**
+ * Helper to create a Data URL for web mode assets
+ * We use Data URLs instead of Blob URLs because Tldraw validation
+ * can be strict about protocols.
+ */
+const createWebAssetUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
+
+/**
  * Save file bytes directly to the assets folder (Tauri only)
  * This is used when we have raw file data (e.g., from clipboard paste) without a file path
  * @param file - File object from clipboard/drag-drop
@@ -136,9 +150,9 @@ export async function saveBytesToAssets(
     fileType: 'pdf' | 'image'
 ): Promise<{ relativePath: string; url: string }> {
     if (!isTauri()) {
-        // In web mode, create object URL and return it
-        const url = URL.createObjectURL(file);
-        log.debug('Web mode: created object URL for file');
+        // In web mode, create Data URL and return it
+        const url = await createWebAssetUrl(file);
+        log.debug('Web mode: created Data URL for file');
         return { relativePath: url, url };
     }
 
@@ -186,9 +200,9 @@ export async function importFile(
     fileType: 'pdf' | 'image'
 ): Promise<{ relativePath: string; url: string }> {
     if (!isTauri()) {
-        // In web mode, create object URL and return it
-        const url = URL.createObjectURL(file);
-        log.debug('Web mode: created object URL for file');
+        // In web mode, create Data URL and return it
+        const url = await createWebAssetUrl(file);
+        log.debug('Web mode: created Data URL for file');
         return { relativePath: url, url };
     }
 
@@ -198,10 +212,9 @@ export async function importFile(
     const sourcePath = file.path as string | undefined;
 
     if (!sourcePath) {
-        // Fallback: create a temp file from the blob
-        log.warn('File has no path, creating from blob is not yet supported');
-        const url = URL.createObjectURL(file);
-        return { relativePath: url, url };
+        // Fallback: create a temp file from the blob (or just use saveBytesToAssets)
+        log.warn('File has no path, falling back to saveBytesToAssets');
+        return saveBytesToAssets(file, fileType);
     }
 
     try {

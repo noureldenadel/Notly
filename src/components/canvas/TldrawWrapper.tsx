@@ -114,9 +114,7 @@ export function TldrawWrapper({
                             mimeType: file.type,
                             isAnimated: file.type === 'image/gif',
                         },
-                        meta: {
-                            relativePath, // Store relative path for portability
-                        },
+                        meta: relativePath ? { relativePath } : {},
                     };
                 } else if (isVideo) {
                     // Get video dimensions
@@ -139,9 +137,7 @@ export function TldrawWrapper({
                             mimeType: file.type,
                             isAnimated: true,
                         },
-                        meta: {
-                            relativePath,
-                        },
+                        meta: relativePath ? { relativePath } : {},
                     };
                 }
 
@@ -153,35 +149,22 @@ export function TldrawWrapper({
             if (initialSnapshot) {
                 const load = async () => {
                     try {
-                        const parsed = JSON.parse(initialSnapshot);
+                        let parsed;
+                        try {
+                            parsed = JSON.parse(initialSnapshot);
+                        } catch (e) {
+                            console.error('Failed to parse initial snapshot:', e);
+                            return;
+                        }
 
                         // Patch assets with resolved URLs
                         // This ensures that 'tauri://' URLs are valid for the current session/machine
-                        try {
-                            const { getAssetUrl } = await import('@/lib/assetManager');
-                            const records = parsed.store || {};
+                        await patchAssetsInSnapshot(parsed);
 
-                            const promises = Object.values(records).map(async (record: any) => {
-                                if (record.typeName === 'asset' && record.type === 'image' && record.meta?.relativePath) {
-                                    try {
-                                        const url = await getAssetUrl(record.meta.relativePath as string);
-                                        if (url) {
-                                            record.props.src = url;
-                                        }
-                                    } catch (e) {
-                                        console.error('Failed to resolve asset path:', e);
-                                    }
-                                }
-                            });
-
-                            await Promise.all(promises);
-                        } catch (e) {
-                            console.error('Failed to patch assets:', e);
-                        }
-
+                        // Load into store
                         loadSnapshot(editor.store, parsed);
                     } catch (e) {
-                        console.error('Failed to load canvas snapshot:', e);
+                        console.error('Failed to patch assets or load snapshot:', e);
                     }
                 };
                 load();
@@ -350,7 +333,7 @@ export function TldrawWrapper({
 
     return (
         <div
-            className={`w-full h-full ${className}`}
+            className={`w-full h-full tldraw-hide-ui ${className}`}
             style={{ position: 'relative' }}
         >
             <Tldraw
@@ -358,7 +341,6 @@ export function TldrawWrapper({
                 shapeUtils={shapeUtils}
                 onMount={handleMount}
                 inferDarkMode={false}
-                hideUi={true}
                 components={components}
                 assets={tauriAssetStore}
             />
@@ -367,6 +349,43 @@ export function TldrawWrapper({
 }
 
 export default TldrawWrapper;
+
+// Helper to patch assets in a snapshot with resolved URLs
+// This is used to ensure that asset paths (relativePath) are converted to 
+// valid URLs (tauri://...) before loading into the editor
+export async function patchAssetsInSnapshot(snapshot: any) {
+    if (!snapshot || !snapshot.store) return;
+
+    try {
+        // Dynamically import to avoid build issues in non-browser envs if needed
+        const { getAssetUrl } = await import('@/lib/assetManager');
+        const records = snapshot.store;
+
+        const promises = Object.values(records).map(async (record: any) => {
+            // Check for image assets with relativePath meta
+            if (record.typeName === 'asset' && record.type === 'image' && record.meta?.relativePath) {
+                try {
+                    const url = await getAssetUrl(record.meta.relativePath as string);
+                    if (url) {
+                        record.props.src = url;
+                    }
+                } catch (e) {
+                    console.error('Failed to resolve asset path:', e);
+                }
+            }
+            // Check for PDF shapes with fileId (relativePath)
+            if (record.typeName === 'shape' && record.type === 'pdf' && record.props?.fileId) {
+                // We don't need to patch the URL here because PDFViewerModal resolves it 
+                // using the fileId (actually relativePath) directly.
+                // But if we wanted to pre-resolve it, we could.
+            }
+        });
+
+        await Promise.all(promises);
+    } catch (e) {
+        console.error('Failed to patch assets in snapshot:', e);
+    }
+}
 
 // Helper function to create a card shape programmatically
 export function createCardOnCanvas(

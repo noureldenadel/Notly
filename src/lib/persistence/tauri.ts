@@ -3,6 +3,7 @@
  * Used when running as Tauri desktop app
  */
 
+import Database from '@tauri-apps/plugin-sql';
 import { invoke } from '@tauri-apps/api/core';
 import type {
     PersistenceAPI,
@@ -14,16 +15,88 @@ import type {
     Highlight,
     Favorite
 } from './types';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('TauriPersistence');
+
+// Helpers for SQL query construction
+const now = () => Date.now();
 
 // Tauri SQLite Persistence Implementation
 export const tauriAdapter: PersistenceAPI = {
     async init() {
         try {
-            await invoke('init_database', { dbPath: 'database.db' });
+            // Initialize database tables
+            const db = await Database.load('sqlite:database.db');
+
+            // Projects Table
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    thumbnail_path TEXT,
+                    color TEXT,
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    settings TEXT
+                )
+            `);
+
+            // Boards Table
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS boards (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    parent_board_id TEXT,
+                    title TEXT NOT NULL,
+                    position INTEGER DEFAULT 0,
+                    tldraw_snapshot TEXT,
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+                )
+            `);
+
+            // Cards Table
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS cards (
+                    id TEXT PRIMARY KEY,
+                    title TEXT,
+                    content TEXT,
+                    content_type TEXT,
+                    color TEXT,
+                    is_hidden INTEGER DEFAULT 0,
+                    word_count INTEGER DEFAULT 0,
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    metadata TEXT
+                )
+            `);
+
+            // Files Table
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS files (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_type TEXT,
+                    file_size INTEGER,
+                    mime_type TEXT,
+                    thumbnail_path TEXT,
+                    import_mode TEXT,
+                    created_at INTEGER,
+                    updated_at INTEGER,
+                    metadata TEXT
+                )
+            `);
+
+            // Ensure directory structure (keep using the Rust command for FS ops)
             await invoke('ensure_directory_structure');
-            console.log('[Persistence] Initialized Tauri SQLite adapter');
+
+            log.info('Initialized Tauri SQLite adapter');
         } catch (e) {
-            console.error('[Persistence] Error initializing Tauri adapter:', e);
+            log.error('Error initializing Tauri adapter:', e);
             throw e;
         }
     },
@@ -31,112 +104,270 @@ export const tauriAdapter: PersistenceAPI = {
     // Projects
     async getProjects(): Promise<Project[]> {
         try {
-            return await invoke('get_projects');
+            const db = await Database.load('sqlite:database.db');
+            const rows = await db.select<any[]>('SELECT * FROM projects ORDER BY updated_at DESC');
+            return rows.map(row => ({
+                id: row.id,
+                title: row.title,
+                description: row.description,
+                thumbnailPath: row.thumbnail_path,
+                color: row.color,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                settings: row.settings
+            }));
         } catch (e) {
-            console.error('[Persistence] Error getting projects:', e);
+            log.error('Error getting projects:', e);
             return [];
         }
     },
     async saveProject(project: Project): Promise<void> {
         try {
-            await invoke('create_project', {
-                id: project.id,
-                title: project.title,
-                description: project.description,
-                color: project.color,
-            });
+            const db = await Database.load('sqlite:database.db');
+            await db.execute(
+                `INSERT OR REPLACE INTO projects (id, title, description, thumbnail_path, color, created_at, updated_at, settings)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [
+                    project.id,
+                    project.title,
+                    project.description,
+                    project.thumbnailPath,
+                    project.color,
+                    project.createdAt,
+                    project.updatedAt,
+                    project.settings
+                ]
+            );
         } catch (e) {
-            console.error('[Persistence] Error saving project:', e);
+            log.error('Error saving project:', e);
         }
     },
     async deleteProject(id: string): Promise<void> {
         try {
-            await invoke('delete_project', { id });
+            const db = await Database.load('sqlite:database.db');
+            await db.execute('DELETE FROM projects WHERE id = $1', [id]);
         } catch (e) {
-            console.error('[Persistence] Error deleting project:', e);
+            log.error('Error deleting project:', e);
         }
     },
 
     // Boards
     async getBoards(projectId?: string): Promise<Board[]> {
         try {
-            return await invoke('get_boards', { projectId: projectId || '' });
+            const db = await Database.load('sqlite:database.db');
+            let query = 'SELECT * FROM boards';
+            const params: any[] = [];
+
+            if (projectId) {
+                query += ' WHERE project_id = $1';
+                params.push(projectId);
+            }
+            query += ' ORDER BY position ASC';
+
+            const rows = await db.select<any[]>(query, params);
+            return rows.map(row => ({
+                id: row.id,
+                projectId: row.project_id,
+                parentBoardId: row.parent_board_id,
+                title: row.title,
+                position: row.position,
+                tldrawSnapshot: row.tldraw_snapshot,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            }));
         } catch (e) {
-            console.error('[Persistence] Error getting boards:', e);
+            log.error('Error getting boards:', e);
             return [];
         }
     },
     async saveBoard(board: Board): Promise<void> {
         try {
-            await invoke('create_board', {
-                id: board.id,
-                projectId: board.projectId,
-                title: board.title,
-                position: board.position,
-            });
+            const db = await Database.load('sqlite:database.db');
+            // Check if board exists to preserve snapshot if not provided in update
+            // (Though typically saveBoard updates the whole object. For snapshot, we have saveCanvasSnapshot)
+
+            await db.execute(
+                `INSERT INTO boards (id, project_id, parent_board_id, title, position, created_at, updated_at, tldraw_snapshot)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 ON CONFLICT(id) DO UPDATE SET
+                    project_id = excluded.project_id,
+                    parent_board_id = excluded.parent_board_id,
+                    title = excluded.title,
+                    position = excluded.position,
+                    updated_at = excluded.updated_at
+                    -- Don't overwrite snapshot here unless explicitly needed, 
+                    -- but typically saveCanvasSnapshot handles the snapshot column separately 
+                    -- or we include it if 'board.tldrawSnapshot' is set.
+                `,
+                [
+                    board.id,
+                    board.projectId,
+                    board.parentBoardId,
+                    board.title,
+                    board.position,
+                    board.createdAt,
+                    board.updatedAt,
+                    board.tldrawSnapshot
+                ]
+            );
+
+            // If we have a snapshot, we should ensure it's saved (the ON CONFLICT clause above might skip it if we just did the partial update logic)
+            // But simplify: standard upsert
+            if (board.tldrawSnapshot) {
+                await db.execute(
+                    `UPDATE boards SET tldraw_snapshot = $1 WHERE id = $2`,
+                    [board.tldrawSnapshot, board.id]
+                );
+            }
+
         } catch (e) {
-            console.error('[Persistence] Error saving board:', e);
+            log.error('Error saving board:', e);
         }
     },
-    async deleteBoard(_id: string): Promise<void> {
-        // Not implemented in Rust yet
-        console.warn('[Persistence] deleteBoard not implemented in Tauri');
+    async deleteBoard(id: string): Promise<void> {
+        try {
+            const db = await Database.load('sqlite:database.db');
+            await db.execute('DELETE FROM boards WHERE id = $1', [id]);
+        } catch (e) {
+            log.error('Error deleting board:', e);
+        }
     },
 
     // Cards
     async getCards(): Promise<Card[]> {
         try {
-            return await invoke('get_cards');
+            const db = await Database.load('sqlite:database.db');
+            const rows = await db.select<any[]>('SELECT * FROM cards');
+            return rows.map(row => ({
+                id: row.id,
+                title: row.title,
+                content: row.content,
+                contentType: row.content_type,
+                color: row.color,
+                isHidden: Boolean(row.is_hidden),
+                wordCount: row.word_count,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                metadata: row.metadata
+            }));
         } catch (e) {
-            console.error('[Persistence] Error getting cards:', e);
+            log.error('Error getting cards:', e);
             return [];
         }
     },
     async saveCard(card: Card): Promise<void> {
         try {
-            await invoke('create_card', {
-                id: card.id,
-                title: card.title,
-                content: card.content,
-            });
+            const db = await Database.load('sqlite:database.db');
+            await db.execute(
+                `INSERT OR REPLACE INTO cards (id, title, content, content_type, color, is_hidden, word_count, created_at, updated_at, metadata)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [
+                    card.id,
+                    card.title,
+                    card.content,
+                    card.contentType,
+                    card.color,
+                    card.isHidden ? 1 : 0,
+                    card.wordCount,
+                    card.createdAt,
+                    card.updatedAt,
+                    card.metadata
+                ]
+            );
         } catch (e) {
-            console.error('[Persistence] Error saving card:', e);
+            log.error('Error saving card:', e);
         }
     },
     async deleteCard(id: string): Promise<void> {
         try {
-            await invoke('delete_card', { id });
+            const db = await Database.load('sqlite:database.db');
+            await db.execute('DELETE FROM cards WHERE id = $1', [id]);
         } catch (e) {
-            console.error('[Persistence] Error deleting card:', e);
+            log.error('Error deleting card:', e);
         }
     },
 
     // Canvas Snapshots
     async saveCanvasSnapshot(boardId: string, snapshot: string): Promise<void> {
         try {
-            await invoke('save_canvas_snapshot', { boardId, snapshot });
+            const db = await Database.load('sqlite:database.db');
+            await db.execute(
+                'UPDATE boards SET tldraw_snapshot = $1, updated_at = $2 WHERE id = $3',
+                [snapshot, now(), boardId]
+            );
+            log.debug('Saved snapshot for board:', boardId);
         } catch (e) {
-            console.error('[Persistence] Error saving canvas snapshot:', e);
+            log.error('Error saving canvas snapshot:', e);
         }
     },
     async loadCanvasSnapshot(boardId: string): Promise<string | null> {
         try {
-            return await invoke('load_canvas_snapshot', { boardId });
+            const db = await Database.load('sqlite:database.db');
+            const rows = await db.select<any[]>('SELECT tldraw_snapshot FROM boards WHERE id = $1', [boardId]);
+            if (rows.length > 0 && rows[0].tldraw_snapshot) {
+                return rows[0].tldraw_snapshot;
+            }
+            return null;
         } catch (e) {
-            console.error('[Persistence] Error loading canvas snapshot:', e);
+            log.error('Error loading canvas snapshot:', e);
             return null;
         }
     },
 
-    // Files - stub implementations (not fully implemented in Rust yet)
+    // Files
     async getFiles(): Promise<FileEntry[]> {
-        return [];
+        try {
+            const db = await Database.load('sqlite:database.db');
+            const rows = await db.select<any[]>('SELECT * FROM files ORDER BY created_at DESC');
+            return rows.map(row => ({
+                id: row.id,
+                filename: row.filename,
+                filePath: row.file_path,
+                fileType: row.file_type,
+                fileSize: row.file_size,
+                mimeType: row.mime_type,
+                thumbnailPath: row.thumbnail_path,
+                importMode: row.import_mode,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                metadata: row.metadata
+            }));
+        } catch (e) {
+            log.error('Error getting files:', e);
+            return [];
+        }
     },
-    async saveFile(_file: FileEntry): Promise<void> {
-        console.warn('[Persistence] saveFile not implemented in Tauri');
+    async saveFile(file: FileEntry): Promise<void> {
+        try {
+            const db = await Database.load('sqlite:database.db');
+            await db.execute(
+                `INSERT OR REPLACE INTO files (id, filename, file_path, file_type, file_size, mime_type, thumbnail_path, import_mode, created_at, updated_at, metadata)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [
+                    file.id,
+                    file.filename,
+                    file.filePath,
+                    file.fileType,
+                    file.fileSize,
+                    file.mimeType,
+                    file.thumbnailPath,
+                    file.importMode,
+                    file.createdAt,
+                    file.updatedAt,
+                    file.metadata
+                ]
+            );
+        } catch (e) {
+            log.error('Error saving file:', e);
+        }
     },
-    async deleteFile(_id: string): Promise<void> {
-        console.warn('[Persistence] deleteFile not implemented in Tauri');
+    async deleteFile(id: string): Promise<void> {
+        try {
+            const db = await Database.load('sqlite:database.db');
+            await db.execute('DELETE FROM files WHERE id = $1', [id]);
+        } catch (e) {
+            log.error('Error deleting file:', e);
+        }
     },
 
     // Tags - stub implementations
@@ -144,10 +375,10 @@ export const tauriAdapter: PersistenceAPI = {
         return [];
     },
     async saveTag(_tag: Tag): Promise<void> {
-        console.warn('[Persistence] saveTag not implemented in Tauri');
+        log.warn('saveTag not implemented');
     },
     async deleteTag(_id: string): Promise<void> {
-        console.warn('[Persistence] deleteTag not implemented in Tauri');
+        log.warn('deleteTag not implemented');
     },
 
     // Highlights - stub implementations
@@ -155,10 +386,10 @@ export const tauriAdapter: PersistenceAPI = {
         return [];
     },
     async saveHighlight(_highlight: Highlight): Promise<void> {
-        console.warn('[Persistence] saveHighlight not implemented in Tauri');
+        log.warn('saveHighlight not implemented');
     },
     async deleteHighlight(_id: string): Promise<void> {
-        console.warn('[Persistence] deleteHighlight not implemented in Tauri');
+        log.warn('deleteHighlight not implemented');
     },
 
     // Favorites - stub implementations
@@ -166,9 +397,9 @@ export const tauriAdapter: PersistenceAPI = {
         return [];
     },
     async saveFavorite(_favorite: Favorite): Promise<void> {
-        console.warn('[Persistence] saveFavorite not implemented in Tauri');
+        log.warn('saveFavorite not implemented');
     },
     async deleteFavorite(_id: string): Promise<void> {
-        console.warn('[Persistence] deleteFavorite not implemented in Tauri');
+        log.warn('deleteFavorite not implemented');
     },
 };
