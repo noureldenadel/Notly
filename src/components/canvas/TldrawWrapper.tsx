@@ -17,6 +17,7 @@ import { MindMapTool } from './tools/MindMapTool';
 import { createLogger } from '@/lib/logger';
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
 import { tauriAssetStore } from '@/lib/tldrawAssetStore';
+import { useAdobeZoom } from '@/hooks/useAdobeZoom';
 
 const log = createLogger('tldraw');
 
@@ -234,6 +235,9 @@ export function TldrawWrapper({
             editor.updateInstanceState({ isGridMode: showGrid });
         }
     }, [editor, appearance.gridType]);
+
+    // Enable Adobe-style zoom shortcuts
+    useAdobeZoom(editor);
 
     // Sync dark mode
     useEffect(() => {

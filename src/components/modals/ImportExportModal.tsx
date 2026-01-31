@@ -11,29 +11,18 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Upload,
     Download,
-    FileText,
-    Image,
-    FileJson,
-    File,
+    FolderOpen,
     Check,
     X,
-    AlertCircle,
+    FileArchive,
+    Loader2,
 } from 'lucide-react';
-import { useCardStore, useFileStore } from '@/stores';
-import {
-    importMarkdownFiles,
-    importJsonBackup,
-    exportCardsAsMarkdown,
-    exportAsJson,
-    exportProjectBackup,
-    getFileType,
-    IMPORT_ACCEPT,
-} from '@/lib/importExport';
-import type { Card } from '@/stores/types';
+import { useProjectStore } from '@/stores';
+import { exportProjectBundle, importProjectBundle } from '@/lib/projectBundle';
+import { toast } from 'sonner';
 
 interface ImportExportModalProps {
     open: boolean;
@@ -41,349 +30,166 @@ interface ImportExportModalProps {
     initialTab?: 'import' | 'export';
 }
 
-interface ImportedFile {
-    file: File;
-    type: ReturnType<typeof getFileType>;
-    status: 'pending' | 'importing' | 'success' | 'error';
-    error?: string;
-}
-
-export function ImportExportModal({ open, onOpenChange, initialTab = 'import' }: ImportExportModalProps) {
+export function ImportExportModal({ open, onOpenChange, initialTab = 'export' }: ImportExportModalProps) {
     const [activeTab, setActiveTab] = useState<'import' | 'export'>(initialTab);
-
-    // Reset tab when opening
-    if (open && activeTab !== initialTab) {
-        // We use a ref or effect usually, but for simple modal logic:
-        // Actually, better to use useEffect to sync when open changes to true
-    }
+    const [exporting, setExporting] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [importProgress, setImportProgress] = useState(0);
-    const [importedFiles, setImportedFiles] = useState<ImportedFile[]>([]);
-    const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
+    const [importError, setImportError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { cards, createCard } = useCardStore();
-    const { addFile } = useFileStore();
+    const { projects, loadProjects } = useProjectStore();
 
     // Sync active tab when modal opens
     useEffect(() => {
         if (open) {
             setActiveTab(initialTab);
+            setImportFile(null);
+            setImportStatus('idle');
+            setImportError(null);
         }
     }, [open, initialTab]);
 
     // Handle file selection
     const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files) return;
-
-        const newFiles: ImportedFile[] = Array.from(files).map(file => ({
-            file,
-            type: getFileType(file),
-            status: 'pending' as const,
-        }));
-
-        setImportedFiles(prev => [...prev, ...newFiles]);
+        const file = event.target.files?.[0];
+        if (file) {
+            if (!file.name.endsWith('.notly')) {
+                toast.error('Please select a .notly file');
+                return;
+            }
+            setImportFile(file);
+            setImportStatus('idle');
+            setImportError(null);
+        }
     }, []);
 
-    // Process imports
-    const processImports = async () => {
-        setImporting(true);
-        const total = importedFiles.filter(f => f.status === 'pending').length;
-        let processed = 0;
-
-        const updatedFiles = [...importedFiles];
-
-        for (let i = 0; i < updatedFiles.length; i++) {
-            const importedFile = updatedFiles[i];
-            if (importedFile.status !== 'pending') continue;
-
-            updatedFiles[i] = { ...importedFile, status: 'importing' };
-            setImportedFiles([...updatedFiles]);
-
-            try {
-                switch (importedFile.type) {
-                    case 'markdown': {
-                        const cardsData = await importMarkdownFiles([importedFile.file]);
-                        for (const card of cardsData) {
-                            createCard(card.content || '', card.title, card.color);
-                        }
-                        updatedFiles[i] = { ...importedFile, status: 'success' };
-                        break;
-                    }
-                    case 'json': {
-                        const result = await importJsonBackup(importedFile.file);
-                        if (result) {
-                            updatedFiles[i] = { ...importedFile, status: 'success' };
-                        } else {
-                            updatedFiles[i] = { ...importedFile, status: 'error', error: 'Invalid JSON format' };
-                        }
-                        break;
-                    }
-                    case 'image':
-                    case 'pdf': {
-                        // Import file using asset manager (copies to app folder)
-                        const { importFile: importAssetFile } = await import('@/lib/assetManager');
-                        try {
-                            const { relativePath, url } = await importAssetFile(
-                                importedFile.file,
-                                importedFile.type as 'pdf' | 'image'
-                            );
-                            // Add file to store with the new path
-                            addFile(
-                                importedFile.file.name,
-                                relativePath, // Now stores the relative path in app assets
-                                importedFile.type,
-                                {
-                                    fileSize: importedFile.file.size,
-                                    mimeType: importedFile.file.type,
-                                    importMode: 'copy',
-                                    metadata: { originalUrl: url },
-                                }
-                            );
-                            updatedFiles[i] = { ...importedFile, status: 'success' };
-                        } catch (assetError) {
-                            console.error('Failed to import file:', assetError);
-                            updatedFiles[i] = {
-                                ...importedFile,
-                                status: 'error',
-                                error: assetError instanceof Error ? assetError.message : 'Failed to import file'
-                            };
-                        }
-                        break;
-                    }
-                    default:
-                        updatedFiles[i] = { ...importedFile, status: 'error', error: 'Unsupported file type' };
-                }
-            } catch (e) {
-                updatedFiles[i] = {
-                    ...importedFile,
-                    status: 'error',
-                    error: e instanceof Error ? e.message : 'Unknown error'
-                };
-            }
-
-            processed++;
-            setImportProgress((processed / total) * 100);
-            setImportedFiles([...updatedFiles]);
+    // Handle export
+    const handleExport = async (projectId: string) => {
+        setExporting(true);
+        try {
+            await exportProjectBundle(projectId);
+            toast.success('Project exported successfully!');
+        } catch (e) {
+            console.error('Export error:', e);
+            toast.error('Failed to export project');
+        } finally {
+            setExporting(false);
         }
-
-        setImporting(false);
-        setTimeout(() => setImportProgress(0), 1000);
     };
 
-    // Clear import list
-    const clearImports = () => {
-        setImportedFiles([]);
-        setImportProgress(0);
+    // Handle import
+    const handleImport = async () => {
+        if (!importFile) return;
+
+        setImporting(true);
+        setImportStatus('importing');
+        setImportError(null);
+
+        try {
+            const newProjectId = await importProjectBundle(importFile);
+            setImportStatus('success');
+            toast.success('Project imported successfully!');
+
+            // Reload projects to show the new one
+            await loadProjects();
+
+            // Close modal after short delay
+            setTimeout(() => {
+                onOpenChange(false);
+            }, 1500);
+        } catch (e) {
+            console.error('Import error:', e);
+            setImportStatus('error');
+            setImportError(e instanceof Error ? e.message : 'Unknown error');
+            toast.error('Failed to import project');
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    // Clear import
+    const clearImport = () => {
+        setImportFile(null);
+        setImportStatus('idle');
+        setImportError(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     };
 
-    // Toggle card selection
-    const toggleCardSelection = (cardId: string) => {
-        setSelectedCards(prev => {
-            const next = new Set(prev);
-            if (next.has(cardId)) {
-                next.delete(cardId);
-            } else {
-                next.add(cardId);
-            }
-            return next;
-        });
-    };
-
-    // Select all cards
-    const selectAllCards = () => {
-        setSelectedCards(new Set(cards.map(c => c.id)));
-    };
-
-    // Clear selection
-    const clearSelection = () => {
-        setSelectedCards(new Set());
-    };
-
-    // Export selected cards as Markdown
-    const handleExportMarkdown = () => {
-        const selectedCardsData = cards.filter(c => selectedCards.has(c.id));
-        if (selectedCardsData.length > 0) {
-            exportCardsAsMarkdown(selectedCardsData, 'cards-export.md');
-        }
-    };
-
-    // Export as JSON
-    const handleExportJson = () => {
-        const selectedCardsData = cards.filter(c => selectedCards.has(c.id));
-        exportAsJson(selectedCardsData, 'cards-export.json');
-    };
-
-    // Export full backup
-    const handleExportBackup = () => {
-        exportProjectBackup('default');
-    };
-
-    // Get file icon
-    const getFileIcon = (type: ReturnType<typeof getFileType>) => {
-        switch (type) {
-            case 'markdown': return <FileText className="w-4 h-4" />;
-            case 'image': return <Image className="w-4 h-4" />;
-            case 'json': return <FileJson className="w-4 h-4" />;
-            default: return <File className="w-4 h-4" />;
-        }
-    };
-
-    // Get status icon
-    const getStatusIcon = (status: ImportedFile['status']) => {
-        switch (status) {
-            case 'success': return <Check className="w-4 h-4 text-green-500" />;
-            case 'error': return <X className="w-4 h-4 text-red-500" />;
-            case 'importing': return <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
-            default: return null;
-        }
-    };
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        {activeTab === 'import' ? <Upload className="w-5 h-5" /> : <Download className="w-5 h-5" />}
-                        Import / Export
+                        <FileArchive className="w-5 h-5" />
+                        Import / Export Project
                     </DialogTitle>
                     <DialogDescription>
-                        Import files or export your notes and data
+                        Export projects as .notly files or import them back
                     </DialogDescription>
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'import' | 'export')} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="import" className="flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                            Import
-                        </TabsTrigger>
                         <TabsTrigger value="export" className="flex items-center gap-2">
                             <Download className="w-4 h-4" />
                             Export
                         </TabsTrigger>
+                        <TabsTrigger value="import" className="flex items-center gap-2">
+                            <Upload className="w-4 h-4" />
+                            Import
+                        </TabsTrigger>
                     </TabsList>
 
-                    {/* Import Tab */}
-                    <TabsContent value="import" className="space-y-4 mt-4">
-                        {/* File Input */}
-                        <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                multiple
-                                accept={IMPORT_ACCEPT.all}
-                                onChange={handleFileSelect}
-                                className="hidden"
-                                id="file-import"
-                            />
-                            <label
-                                htmlFor="file-import"
-                                className="cursor-pointer flex flex-col items-center gap-2"
-                            >
-                                <Upload className="w-8 h-8 text-muted-foreground" />
-                                <p className="text-sm font-medium">Click to select files</p>
-                                <p className="text-xs text-muted-foreground">
-                                    Supports: Markdown, Images, PDFs, JSON backups
-                                </p>
-                            </label>
-                        </div>
-
-                        {/* Import Progress */}
-                        {importing && (
-                            <Progress value={importProgress} className="w-full" />
-                        )}
-
-                        {/* File List */}
-                        {importedFiles.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label>Selected Files ({importedFiles.length})</Label>
-                                    <Button variant="ghost" size="sm" onClick={clearImports}>
-                                        Clear All
-                                    </Button>
-                                </div>
-                                <ScrollArea className="h-[150px] rounded-md border p-2">
-                                    <div className="space-y-2">
-                                        {importedFiles.map((f, i) => (
-                                            <div
-                                                key={i}
-                                                className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    {getFileIcon(f.type)}
-                                                    <span className="text-sm truncate max-w-[200px]">
-                                                        {f.file.name}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {f.error && (
-                                                        <span className="text-xs text-red-500">{f.error}</span>
-                                                    )}
-                                                    {getStatusIcon(f.status)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-
-                                <Button
-                                    onClick={processImports}
-                                    disabled={importing || importedFiles.every(f => f.status !== 'pending')}
-                                    className="w-full"
-                                >
-                                    {importing ? 'Importing...' : 'Import Files'}
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* Empty state */}
-                        {importedFiles.length === 0 && (
-                            <div className="text-center py-4 text-sm text-muted-foreground">
-                                Select files to import
-                            </div>
-                        )}
-                    </TabsContent>
-
                     {/* Export Tab */}
-                    <TabsContent value="export" className="space-y-4 mt-4">
-                        {/* Card Selection */}
+                    <TabsContent value="export" className="mt-4 space-y-4">
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label>Select Cards to Export ({selectedCards.size})</Label>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="sm" onClick={selectAllCards}>
-                                        Select All
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={clearSelection}>
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-                            <ScrollArea className="h-[150px] rounded-md border p-2">
-                                {cards.length === 0 ? (
-                                    <div className="text-center py-4 text-sm text-muted-foreground">
-                                        No cards to export
+                            <Label>Select a project to export</Label>
+                            <ScrollArea className="h-[250px] rounded-md border p-2">
+                                {projects.length === 0 ? (
+                                    <div className="text-center py-8 text-sm text-muted-foreground">
+                                        No projects to export
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {cards.map((card) => (
+                                        {projects.map((project) => (
                                             <div
-                                                key={card.id}
-                                                className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50"
+                                                key={project.id}
+                                                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                                             >
-                                                <Checkbox
-                                                    checked={selectedCards.has(card.id)}
-                                                    onCheckedChange={() => toggleCardSelection(card.id)}
-                                                />
-                                                <FileText className="w-4 h-4 text-muted-foreground" />
-                                                <span className="text-sm truncate">
-                                                    {card.title || 'Untitled Card'}
-                                                </span>
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="w-3 h-3 rounded-full"
+                                                        style={{
+                                                            backgroundColor: project.color
+                                                                ? `hsl(var(--${project.color}))`
+                                                                : 'hsl(var(--primary))'
+                                                        }}
+                                                    />
+                                                    <div>
+                                                        <p className="font-medium text-sm">{project.title}</p>
+                                                        {project.description && (
+                                                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                                                {project.description}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleExport(project.id)}
+                                                    disabled={exporting}
+                                                >
+                                                    {exporting ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <Download className="w-4 h-4" />
+                                                    )}
+                                                </Button>
                                             </div>
                                         ))}
                                     </div>
@@ -391,45 +197,112 @@ export function ImportExportModal({ open, onOpenChange, initialTab = 'import' }:
                             </ScrollArea>
                         </div>
 
-                        {/* Export Options */}
+                        {/* Placeholder to match Import tab button area */}
+                        <div className="h-9" />
+
+                        <p className="text-xs text-muted-foreground text-center">
+                            Exports include all boards and embedded assets (images, PDFs)
+                        </p>
+                    </TabsContent>
+
+                    {/* Import Tab */}
+                    <TabsContent value="import" className="mt-4 space-y-4">
                         <div className="space-y-2">
-                            <Label>Export Format</Label>
-                            <div className="grid grid-cols-1 gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleExportMarkdown}
-                                    disabled={selectedCards.size === 0}
-                                    className="justify-start"
-                                >
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Export as Markdown (.md)
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleExportJson}
-                                    disabled={selectedCards.size === 0}
-                                    className="justify-start"
-                                >
-                                    <FileJson className="w-4 h-4 mr-2" />
-                                    Export as JSON (.json)
-                                </Button>
+                            <Label>Select a .notly file to import</Label>
+                            {/* File Drop Zone */}
+                            <div
+                                className={`border-2 border-dashed rounded-lg h-[250px] flex items-center justify-center text-center transition-colors ${importFile ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                                    }`}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".notly"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                    id="notly-import"
+                                />
+
+                                {!importFile ? (
+                                    <label
+                                        htmlFor="notly-import"
+                                        className="cursor-pointer flex flex-col items-center gap-3"
+                                    >
+                                        <FolderOpen className="w-10 h-10 text-muted-foreground" />
+                                        <div>
+                                            <p className="text-sm font-medium">Click to select a .notly file</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Or drag and drop here
+                                            </p>
+                                        </div>
+                                    </label>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <FileArchive className="w-6 h-6 text-primary" />
+                                            <span className="font-medium">{importFile.name}</span>
+                                            {importStatus === 'idle' && (
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-6 w-6"
+                                                    onClick={clearImport}
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {importStatus === 'importing' && (
+                                            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Importing...
+                                            </div>
+                                        )}
+
+                                        {importStatus === 'success' && (
+                                            <div className="flex items-center justify-center gap-2 text-sm text-green-600">
+                                                <Check className="w-4 h-4" />
+                                                Import successful!
+                                            </div>
+                                        )}
+
+                                        {importStatus === 'error' && (
+                                            <div className="text-sm text-red-500">
+                                                {importError || 'Import failed'}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Full Backup */}
-                        <div className="pt-4 border-t space-y-2">
-                            <Label className="flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4" />
-                                Full Backup
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                                Export all your data including projects, cards, files, and settings
-                            </p>
-                            <Button variant="secondary" onClick={handleExportBackup} className="w-full">
-                                <Download className="w-4 h-4 mr-2" />
-                                Export Full Backup
+                        {/* Import Button - only show when file selected and idle */}
+                        {importFile && importStatus === 'idle' ? (
+                            <Button
+                                onClick={handleImport}
+                                disabled={importing}
+                                className="w-full"
+                            >
+                                {importing ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Importing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Import Project
+                                    </>
+                                )}
                             </Button>
-                        </div>
+                        ) : (
+                            <div className="h-9" /> /* Placeholder to maintain consistent height */
+                        )}
+
+                        <p className="text-xs text-muted-foreground text-center">
+                            Importing creates a new project with all boards and assets
+                        </p>
                     </TabsContent>
                 </Tabs>
             </DialogContent>

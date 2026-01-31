@@ -1,0 +1,69 @@
+﻿[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 2163 modules transformed.
+node.exe : [31mx[39m Build failed in 
+5.18s
+At C:\Program Files\nodejs\npx.ps1:29 
+char:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : ([31mx[39m Build failed in 5.18s:S  
+  tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+[31merror during build:
+[31m[vite]: Rollup failed to resolve 
+import "@tauri-apps/plugin-fs" from "C:/Use
+rs/noure/Desktop/pixel-perfect-pages-main/s
+rc/lib/projectBundle.ts".
+This is most likely unintended because it 
+can break your application at runtime.
+If you do want to externalize this module 
+explicitly add it to
+`build.rollupOptions.external`[31m
+    at viteWarn (file:///C:/Users/noure/Des
+ktop/pixel-perfect-pages-main/node_modules/
+.pnpm/vite@5.4.21_@types+node@22.19.3/node_
+modules/vite/dist/node/chunks/dep-BK3b2jBa.
+js:65855:17)
+    at onwarn (file:///C:/Users/noure/Deskt
+op/pixel-perfect-pages-main/node_modules/.p
+npm/@vitejs+plugin-react-swc@3._60dbda06f9f
+36914a27e926e718138d0/node_modules/@vitejs/
+plugin-react-swc/index.js:90:7)
+    at onRollupWarning (file:///C:/Users/no
+ure/Desktop/pixel-perfect-pages-main/node_m
+odules/.pnpm/vite@5.4.21_@types+node@22.19.
+3/node_modules/vite/dist/node/chunks/dep-BK
+3b2jBa.js:65885:5)
+    at onwarn (file:///C:/Users/noure/Deskt
+op/pixel-perfect-pages-main/node_modules/.p
+npm/vite@5.4.21_@types+node@22.19.3/node_mo
+dules/vite/dist/node/chunks/dep-BK3b2jBa.js
+:65550:7)
+    at file:///C:/Users/noure/Desktop/pixel
+-perfect-pages-main/node_modules/.pnpm/roll
+up@4.54.0/node_modules/rollup/dist/es/share
+d/node-entry.js:21046:13
+    at Object.logger [as onLog] (file:///C:
+/Users/noure/Desktop/pixel-perfect-pages-ma
+in/node_modules/.pnpm/rollup@4.54.0/node_mo
+dules/rollup/dist/es/shared/node-entry.js:2
+2919:9)
+    at 
+ModuleLoader.handleInvalidResolvedId (file:
+///C:/Users/noure/Desktop/pixel-perfect-pag
+es-main/node_modules/.pnpm/rollup@4.54.0/no
+de_modules/rollup/dist/es/shared/node-entry
+.js:21663:26)
+    at ModuleLoader.resolveDynamicImport (f
+ile:///C:/Users/noure/Desktop/pixel-perfect
+-pages-main/node_modules/.pnpm/rollup@4.54.
+0/node_modules/rollup/dist/es/shared/node-e
+ntry.js:21721:58)
+    at async file:///C:/Users/noure/Desktop
+/pixel-perfect-pages-main/node_modules/.pnp
+m/rollup@4.54.0/node_modules/rollup/dist/es
+/shared/node-entry.js:21605:32[39m

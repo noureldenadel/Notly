@@ -88,8 +88,17 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
       );
     });
 
-    // If no shapes in viewport, return null (don't capture empty view)
+    // If no shapes in viewport, capture empty white background
     if (shapesInView.length === 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = THUMBNAIL.MAX_WIDTH;
+      canvas.height = THUMBNAIL.MAX_HEIGHT;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/png', THUMBNAIL.QUALITY);
+      }
       return null;
     }
 
@@ -181,7 +190,7 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         // Capture and save thumbnail for the project
         if (activeProjectId) {
           captureCanvasThumbnail(editor).then((thumbnail) => {
-            if (thumbnail) {
+            if (thumbnail !== null) {
               updateProject(activeProjectId, { thumbnailPath: thumbnail });
               log.debug('Saved thumbnail for project:', activeProjectId);
             }
@@ -241,29 +250,14 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
     log.debug('Editor ready for board:', currentBoardId);
   }, [setEditor, currentBoardId]);
 
-  // Debounced thumbnail capture ref
-  const thumbnailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
 
   // Handle snapshot changes (for auto-save)
   const handleSnapshotChange = useCallback((snapshot: string) => {
     // Auto-save snapshot to SQLite
     saveBoardSnapshot(currentBoardId, snapshot);
 
-    // Debounced thumbnail capture (wait 2 seconds after last change)
-    if (thumbnailTimeoutRef.current) {
-      clearTimeout(thumbnailTimeoutRef.current);
-    }
 
-    thumbnailTimeoutRef.current = setTimeout(() => {
-      if (editorRef.current && activeProjectId) {
-        captureCanvasThumbnail(editorRef.current).then((thumbnail) => {
-          if (thumbnail) {
-            updateProject(activeProjectId, { thumbnailPath: thumbnail });
-            log.debug('Auto-saved thumbnail for project:', activeProjectId);
-          }
-        });
-      }
-    }, THUMBNAIL.DEBOUNCE_MS);
   }, [currentBoardId, activeProjectId, updateProject]);
 
   return (

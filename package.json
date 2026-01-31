@@ -1,7 +1,7 @@
 {
   "name": "notly",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -63,6 +63,7 @@
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.26",
     "immer": "^11.1.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.462.0",
     "minisearch": "^7.2.0",
     "nanoid": "^5.1.6",

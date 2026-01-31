@@ -115,6 +115,8 @@
     -webkit-tap-highlight-color: transparent;
     /* Disable text dragging */
     -webkit-user-drag: none;
+    /* Prevent browser overscroll/bounce */
+    overscroll-behavior: none;
   }
 
   /* Allow text selection in specific elements where it makes sense */
