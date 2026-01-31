@@ -35,6 +35,7 @@ pub fn run() {
             commands::database::copy_file_to_assets,
             commands::database::delete_asset_file,
             commands::database::get_asset_path,
+            commands::database::save_bytes_to_assets,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

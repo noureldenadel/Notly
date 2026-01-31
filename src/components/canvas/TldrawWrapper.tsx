@@ -16,6 +16,7 @@ import { CardTool } from './tools/CardTool';
 import { MindMapTool } from './tools/MindMapTool';
 import { createLogger } from '@/lib/logger';
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
+import { tauriAssetStore } from '@/lib/tldrawAssetStore';
 
 const log = createLogger('tldraw');
 
@@ -53,6 +54,99 @@ export function TldrawWrapper({
                     ...editor.getInstanceState().stylesForNextShape,
                     'tldraw:font': 'sans',
                 }
+            });
+
+            // Register external asset handler to save files to app folder
+            // This prevents the "invalid protocol" error for blob URLs
+            // and keeps the database small by storing files separately
+            editor.registerExternalAssetHandler('file', async ({ file }) => {
+                log.debug('Handling external file asset:', file.name, file.type);
+
+                // Import asset manager dynamically
+                const { saveBytesToAssets, isTauri } = await import('@/lib/assetManager');
+
+                // Determine asset type
+                const isImage = file.type.startsWith('image/');
+                const isVideo = file.type.startsWith('video/');
+
+                if (!isImage && !isVideo) {
+                    throw new Error(`Unsupported file type: ${file.type}`);
+                }
+
+                let src: string;
+                let relativePath: string | undefined;
+
+                if (isTauri()) {
+                    // In Tauri: save file to app folder and get URL
+                    const result = await saveBytesToAssets(file, 'image');
+                    src = result.url;
+                    relativePath = result.relativePath;
+                    log.debug('File saved to assets:', relativePath, 'url:', src);
+                } else {
+                    // In web mode: use data URL as fallback (can't save to filesystem)
+                    src = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    log.debug('Web mode: converted to data URL, length:', src.length);
+                }
+
+                if (isImage) {
+                    // Get image dimensions
+                    const img = new Image();
+                    const size = await new Promise<{ w: number; h: number }>((resolve) => {
+                        img.onload = () => resolve({ w: img.width, h: img.height });
+                        img.onerror = () => resolve({ w: 100, h: 100 }); // fallback
+                        img.src = src;
+                    });
+
+                    return {
+                        id: `asset:${crypto.randomUUID()}` as any,
+                        type: 'image',
+                        typeName: 'asset',
+                        props: {
+                            name: file.name,
+                            src: src,
+                            w: size.w,
+                            h: size.h,
+                            mimeType: file.type,
+                            isAnimated: file.type === 'image/gif',
+                        },
+                        meta: {
+                            relativePath, // Store relative path for portability
+                        },
+                    };
+                } else if (isVideo) {
+                    // Get video dimensions
+                    const video = document.createElement('video');
+                    const size = await new Promise<{ w: number; h: number }>((resolve) => {
+                        video.onloadedmetadata = () => resolve({ w: video.videoWidth, h: video.videoHeight });
+                        video.onerror = () => resolve({ w: 640, h: 480 }); // fallback
+                        video.src = src;
+                    });
+
+                    return {
+                        id: `asset:${crypto.randomUUID()}` as any,
+                        type: 'video',
+                        typeName: 'asset',
+                        props: {
+                            name: file.name,
+                            src: src,
+                            w: size.w,
+                            h: size.h,
+                            mimeType: file.type,
+                            isAnimated: true,
+                        },
+                        meta: {
+                            relativePath,
+                        },
+                    };
+                }
+
+                // Should never reach here due to the early check
+                throw new Error(`Unsupported file type: ${file.type}`);
             });
 
             // Load initial snapshot if provided
@@ -266,6 +360,7 @@ export function TldrawWrapper({
                 inferDarkMode={false}
                 hideUi={true}
                 components={components}
+                assets={tauriAssetStore}
             />
         </div>
     );

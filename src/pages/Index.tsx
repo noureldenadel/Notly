@@ -212,71 +212,10 @@ function IndexContent() {
     insertImage: () => insertImage(),
     insertPDF: () => insertPDF(),
     insertMindMap: () => insertMindMap(),
-    copy: () => {
-      // We can't easily force a copy event programmatically without user interaction in some browsers
-      // But tldraw editor has methods. Tldraw 2.0+ uses internal clipboard.
-      // If we are in global scope, we might need to rely on the fact that Tldraw usually listens to these.
-      // However, user said it doesn't work.
-      // Let's try editor.copy() if it exists or fallback to dispatching event
-      // Note: editor.copy() copies selected shapes to local clipboard
-      // Since we are adding this because the native behavior failed, we try explicit call
-      const selectedIds = editor?.getSelectedShapeIds();
-      if (selectedIds && selectedIds.length > 0) {
-        // Tldraw might have a copy method exposed? 
-        // In typical Tldraw usage, you just rely on the event.
-        // But if we preventDefault in our shortcut handler, we must implement logic.
-        // Our useKeyboardShortcuts prevents default by default.
-        // So we MUST call something or set preventDefault: false for these.
-        // Let's try to find if editor has a copy method.
-        // Based on docs, it might be editor.copy(ids). 
-        // If not available, we should set preventDefault: false in useKeyboardShortcuts for these specific keys
-        // But we already defined them with action.
-        // Let's try to use the editor methods if we can find them.
-        // Actually, for Copy/Paste/Cut, it's often best to let the browser handle it if the focus is right.
-        // But if focus is wrong, we want to force it.
-        // Let's safe bet: Trigger built-in copy if possible.
-        // Without deep Tldraw knowledge on this version's exact API, 
-        // the safest fix for "doesn't work" is often that we are capturing the key and doing nothing.
-        // But we didn't have handlers before! So Tldraw was missing them because focus was lost.
-        // So we need to call editor methods. 
-        // Let's assume editor.copy() exists as per standard Tldraw.
-        // If it doesn't, we will see an error.
-        if (editor) {
-          // @ts-ignore - Assuming copy exists on editor instance
-          editor.copy?.(selectedIds);
-        }
-      }
-    },
-    cut: () => {
-      const selectedIds = editor?.getSelectedShapeIds();
-      if (selectedIds && selectedIds.length > 0 && editor) {
-        // @ts-ignore
-        editor.cut?.(selectedIds);
-      }
-    },
-    paste: () => {
-      if (editor) {
-        // Paste is tricky because we need to read from clipboard which is async and permissioned
-        // @ts-ignore
-        editor.paste?.(); // or editor.putExternalContent()
-        // Tldraw often handles paste by reading storage or event.clipboardData
-        // If we are triggering it via shortcut, we might need to manually read clipboard
-        navigator.clipboard.readText().then(text => {
-          // If it's tldraw JSON, put it. 
-          // This is complex. 
-          // A better approach might be to just focus the canvas and re-dispatch the event?
-          // Or simply NOT prevent default?
-          // But the user says "requires approval".
-          // If we use navigator.clipboard, it requires approval.
-          // If we use Tldraw's internal state, it might work for internal copy/paste.
-          // Let's try explicit paste call.
-          // @ts-ignore
-          editor.paste?.();
-        }).catch(err => {
-          console.error('Paste failed', err);
-        });
-      }
-    },
+    // NOTE: Copy/Cut/Paste are NOT registered here.
+    // tldraw handles these natively when the canvas is focused.
+    // Registering custom handlers was intercepting clipboard events and
+    // causing permission popups via navigator.clipboard API.
   }), [openModal, handleCreateCardShortcut, toast, startPresentation, undo, redo, editor, zoomIn, zoomOut, resetZoom, insertImage, insertPDF, insertMindMap]);
 
   const toolShortcuts = useMemo(() => createToolShortcuts((toolId) => {

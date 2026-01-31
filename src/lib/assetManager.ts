@@ -125,6 +125,56 @@ export async function getAssetsDir(): Promise<string> {
 }
 
 /**
+ * Save file bytes directly to the assets folder (Tauri only)
+ * This is used when we have raw file data (e.g., from clipboard paste) without a file path
+ * @param file - File object from clipboard/drag-drop
+ * @param fileType - 'pdf' | 'image'
+ * @returns Object with relative path and URL
+ */
+export async function saveBytesToAssets(
+    file: File,
+    fileType: 'pdf' | 'image'
+): Promise<{ relativePath: string; url: string }> {
+    if (!isTauri()) {
+        // In web mode, create object URL and return it
+        const url = URL.createObjectURL(file);
+        log.debug('Web mode: created object URL for file');
+        return { relativePath: url, url };
+    }
+
+    try {
+        // Read file as ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+
+        // Convert to base64
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const base64Data = btoa(binary);
+
+        log.debug('Saving bytes to assets:', file.name, 'size:', bytes.length);
+
+        // Call Rust command to save the data
+        const relativePath = await invoke<string>('save_bytes_to_assets', {
+            data: base64Data,
+            filename: file.name || 'pasted_file',
+            fileType,
+        });
+
+        // Get URL for the saved file
+        const url = await getAssetUrl(relativePath);
+        log.debug('Saved bytes to assets:', relativePath, 'url:', url);
+
+        return { relativePath, url };
+    } catch (error) {
+        log.error('Failed to save bytes to assets:', error);
+        throw error;
+    }
+}
+
+/**
  * Import a file (PDF or image) by copying it to the app's assets folder
  * This is the main entry point for importing files
  * @param file - File object from input or drag/drop
@@ -171,5 +221,6 @@ export default {
     getAssetPath,
     getAssetUrl,
     getAssetsDir,
+    saveBytesToAssets,
     importFile,
 };

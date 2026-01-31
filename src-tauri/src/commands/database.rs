@@ -442,3 +442,59 @@ pub async fn get_asset_path(
     let file_path = app_data_dir.join("assets").join(&relative_path);
     Ok(file_path.to_string_lossy().to_string())
 }
+
+/// Save binary data (as base64) to the assets folder
+/// This is used for files from clipboard/paste that don't have a filesystem path
+#[command]
+pub async fn save_bytes_to_assets(
+    app: tauri::AppHandle,
+    data: String,        // Base64-encoded data
+    filename: String,    // Original filename 
+    file_type: String,   // "pdf" | "image"
+) -> Result<String, String> {
+    use std::fs;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    
+    // Decode base64 data
+    let bytes = STANDARD.decode(&data)
+        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+    
+    // Get app data directory
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    // Determine target subdirectory
+    let subdir = match file_type.as_str() {
+        "pdf" => "pdfs",
+        "image" => "images",
+        _ => "other",
+    };
+    
+    let assets_dir = app_data_dir.join("assets").join(subdir);
+    
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&assets_dir)
+        .map_err(|e| format!("Failed to create assets directory: {}", e))?;
+    
+    // Generate unique filename: timestamp_originalname
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    // Sanitize filename - keep only alphanumeric, dots, dashes, underscores
+    let safe_filename: String = filename.chars()
+        .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '-' || *c == '_')
+        .collect();
+    let safe_filename = if safe_filename.is_empty() { "file".to_string() } else { safe_filename };
+    let new_filename = format!("{}_{}", timestamp, safe_filename);
+    
+    let target_path = assets_dir.join(&new_filename);
+    
+    // Write the bytes to file
+    fs::write(&target_path, bytes)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    // Return the relative path from assets folder
+    let relative_path = format!("{}/{}", subdir, new_filename);
+    log::info!("Saved bytes to assets: {} ({} bytes from base64)", relative_path, data.len());
+    
+    Ok(relative_path)
+}
