@@ -22,6 +22,57 @@ const log = createLogger('TauriPersistence');
 // Helpers for SQL query construction
 const now = () => Date.now();
 
+// DB Row Interfaces
+interface ProjectRow {
+    id: string;
+    title: string;
+    description: string | null;
+    thumbnail_path: string | null;
+    color: string | null;
+    created_at: number;
+    updated_at: number;
+    settings: string | null;
+}
+
+interface BoardRow {
+    id: string;
+    project_id: string;
+    parent_board_id: string | null;
+    title: string;
+    position: number;
+    tldraw_snapshot: string | null;
+    created_at: number;
+    updated_at: number;
+}
+
+interface CardRow {
+    id: string;
+    title: string | null;
+    content: string;
+    content_type: string;
+    color: string | null;
+    is_hidden: number;
+    word_count: number;
+    created_at: number;
+    updated_at: number;
+    metadata: string | null;
+}
+
+interface FileRow {
+    id: string;
+    filename: string;
+    file_path: string;
+    file_type: string;
+    file_size: number | null;
+    mime_type: string | null;
+    thumbnail_path: string | null;
+    import_mode: string;
+    created_at: number;
+    updated_at: number;
+    metadata: string | null;
+}
+
+
 // Tauri SQLite Persistence Implementation
 export const tauriAdapter: PersistenceAPI = {
     async init() {
@@ -105,7 +156,7 @@ export const tauriAdapter: PersistenceAPI = {
     async getProjects(): Promise<Project[]> {
         try {
             const db = await Database.load('sqlite:database.db');
-            const rows = await db.select<any[]>('SELECT * FROM projects ORDER BY updated_at DESC');
+            const rows = await db.select<ProjectRow[]>('SELECT * FROM projects ORDER BY updated_at DESC');
             return rows.map(row => ({
                 id: row.id,
                 title: row.title,
@@ -156,7 +207,7 @@ export const tauriAdapter: PersistenceAPI = {
         try {
             const db = await Database.load('sqlite:database.db');
             let query = 'SELECT * FROM boards';
-            const params: any[] = [];
+            const params: (string | number | null)[] = [];
 
             if (projectId) {
                 query += ' WHERE project_id = $1';
@@ -164,7 +215,7 @@ export const tauriAdapter: PersistenceAPI = {
             }
             query += ' ORDER BY position ASC';
 
-            const rows = await db.select<any[]>(query, params);
+            const rows = await db.select<BoardRow[]>(query, params);
             return rows.map(row => ({
                 id: row.id,
                 projectId: row.project_id,
@@ -237,7 +288,7 @@ export const tauriAdapter: PersistenceAPI = {
     async getCards(): Promise<Card[]> {
         try {
             const db = await Database.load('sqlite:database.db');
-            const rows = await db.select<any[]>('SELECT * FROM cards');
+            const rows = await db.select<CardRow[]>('SELECT * FROM cards');
             return rows.map(row => ({
                 id: row.id,
                 title: row.title,
@@ -318,7 +369,7 @@ export const tauriAdapter: PersistenceAPI = {
     async getFiles(): Promise<FileEntry[]> {
         try {
             const db = await Database.load('sqlite:database.db');
-            const rows = await db.select<any[]>('SELECT * FROM files ORDER BY created_at DESC');
+            const rows = await db.select<FileRow[]>('SELECT * FROM files ORDER BY created_at DESC');
             return rows.map(row => ({
                 id: row.id,
                 filename: row.filename,

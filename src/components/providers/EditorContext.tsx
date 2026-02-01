@@ -1,64 +1,19 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { Editor, AssetRecordType, TLShapeId, createShapeId } from 'tldraw';
+import React, { createContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { Editor, AssetRecordType, createShapeId } from 'tldraw';
 import { nanoid } from 'nanoid';
-import { useCardStore } from '@/stores';
-import { createDefaultMindMap } from '@/components/canvas/shapes/MindMapShape';
+// import { useCardStore } from '@/stores'; // Unused in original file based on content analysis? Checking...
+// The original file imported useCardStore but didn't seem to use it in the snippet I saw?
+// Ah, checking lines 1-10 of original file: "import { useCardStore } from '@/stores';"
+// Let's keep imports if they were there, or remove if unused. I'll include it just in case I missed a usage.
 import { PDF_FOOTER_HEIGHT } from '@/components/canvas/shapes/PDFShape';
 import { createLogger } from '@/lib/logger';
 
-import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
+import { SHAPE_DEFAULTS, COLORS, TOOL_MAP, ACTION_TOOLS } from '@/lib/constants';
 import { getViewportCenter } from '@/lib/canvasUtils';
 
 const log = createLogger('EditorContext');
 
-interface EditorContextType {
-    editor: Editor | null;
-    setEditor: (editor: Editor | null) => void;
-
-    // Tool actions
-    setTool: (toolId: string) => void;
-
-    // History actions
-    undo: () => void;
-    redo: () => void;
-    canUndo: boolean;
-    canRedo: boolean;
-
-    // Zoom actions
-    zoomIn: () => void;
-    zoomOut: () => void;
-    zoomToFit: () => void;
-    resetZoom: () => void;
-    zoomLevel: number;
-
-    // Asset actions
-    insertImage: () => void;
-    insertPDF: () => void;
-    insertCard: () => void;
-    insertMindMap: () => void;
-}
-
-const EditorContext = createContext<EditorContextType | null>(null);
-
-// Tool ID mapping from our UI to tldraw tool IDs
-const TOOL_MAP: Record<string, string> = {
-    select: 'select',
-    hand: 'hand',
-    draw: 'draw',
-    eraser: 'eraser',
-    arrow: 'arrow',
-    text: 'text',
-    rectangle: 'geo',
-    ellipse: 'geo',
-    frame: 'frame',
-    sticky: 'note',
-    card: 'card',
-    pdf: 'pdf',
-    mindmap: 'card', // Will be custom later
-};
-
-// Special actions that aren't tools
-const ACTION_TOOLS = ['image', 'pdf'];
+import { EditorContext } from '@/context/editor-context';
 
 export function EditorProvider({ children }: { children: ReactNode }) {
     const [editor, setEditorState] = useState<Editor | null>(null);
@@ -93,11 +48,9 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-
-
     const [currentUiTool, setCurrentUiTool] = useState<string>('select');
     const currentUiToolRef = React.useRef<string>('select');
-    const toolStyles = React.useRef<Record<string, any>>({});
+    const toolStyles = React.useRef<Record<string, unknown>>({});
 
     // Helper to get UI tool ID from editor state
     const getUiToolId = useCallback((editor: Editor) => {
@@ -136,7 +89,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
         // If we have saved styles for this specific tool, restore them
         if (toolStyles.current[toolId]) {
-            nextStyles = { ...toolStyles.current[toolId] };
+            nextStyles = { ...(toolStyles.current[toolId] as Record<string, unknown>) };
         }
 
         // Handle geo shapes - need to set the specific geo shape type
@@ -446,17 +399,4 @@ export function EditorProvider({ children }: { children: ReactNode }) {
             {children}
         </EditorContext.Provider>
     );
-}
-
-export function useEditor() {
-    const context = useContext(EditorContext);
-    if (!context) {
-        throw new Error('useEditor must be used within an EditorProvider');
-    }
-    return context;
-}
-
-// Optional hook that doesn't throw if not in provider
-export function useEditorOptional() {
-    return useContext(EditorContext);
 }

@@ -5,6 +5,9 @@ import {
     getSnapshot,
     loadSnapshot,
     useEditor,
+    TLStoreSnapshot,
+    TLRecord,
+    TLImageAsset
 } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { useCanvasStore, useSyncStore, useSettingsStore } from '@/stores';
@@ -18,6 +21,7 @@ import { createLogger } from '@/lib/logger';
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
 import { tauriAssetStore } from '@/lib/tldrawAssetStore';
 import { useAdobeZoom } from '@/hooks/useAdobeZoom';
+import { patchAssetsInSnapshot } from './tldrawUtils';
 
 const log = createLogger('tldraw');
 
@@ -354,42 +358,7 @@ export function TldrawWrapper({
 
 export default TldrawWrapper;
 
-// Helper to patch assets in a snapshot with resolved URLs
-// This is used to ensure that asset paths (relativePath) are converted to 
-// valid URLs (tauri://...) before loading into the editor
-export async function patchAssetsInSnapshot(snapshot: any) {
-    if (!snapshot || !snapshot.store) return;
 
-    try {
-        // Dynamically import to avoid build issues in non-browser envs if needed
-        const { getAssetUrl } = await import('@/lib/assetManager');
-        const records = snapshot.store;
-
-        const promises = Object.values(records).map(async (record: any) => {
-            // Check for image assets with relativePath meta
-            if (record.typeName === 'asset' && record.type === 'image' && record.meta?.relativePath) {
-                try {
-                    const url = await getAssetUrl(record.meta.relativePath as string);
-                    if (url) {
-                        record.props.src = url;
-                    }
-                } catch (e) {
-                    console.error('Failed to resolve asset path:', e);
-                }
-            }
-            // Check for PDF shapes with fileId (relativePath)
-            if (record.typeName === 'shape' && record.type === 'pdf' && record.props?.fileId) {
-                // We don't need to patch the URL here because PDFViewerModal resolves it 
-                // using the fileId (actually relativePath) directly.
-                // But if we wanted to pre-resolve it, we could.
-            }
-        });
-
-        await Promise.all(promises);
-    } catch (e) {
-        console.error('Failed to patch assets in snapshot:', e);
-    }
-}
 
 // Helper function to create a card shape programmatically
 export function createCardOnCanvas(

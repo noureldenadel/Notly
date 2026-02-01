@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useEditor } from "@/hooks/useEditorContext";
+import { useEditor } from '@/hooks/useEditor';
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

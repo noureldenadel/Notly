@@ -1,4 +1,4 @@
-import { Extension } from '@tiptap/core';
+import { Extension, Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { ReactRenderer } from '@tiptap/react';
@@ -24,7 +24,7 @@ export interface SlashCommand {
     title: string;
     description: string;
     icon: React.ReactNode;
-    command: (editor: unknown) => void;
+    command: (editor: Editor) => void;
     keywords?: string[];
 }
 
@@ -34,70 +34,70 @@ const defaultCommands: SlashCommand[] = [
         description: 'Large section heading',
         icon: <Heading1 className="w-4 h-4" />,
         keywords: ['h1', 'heading', 'title'],
-        command: (editor: any) => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+        command: (editor: Editor) => editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
     {
         title: 'Heading 2',
         description: 'Medium section heading',
         icon: <Heading2 className="w-4 h-4" />,
         keywords: ['h2', 'heading', 'subtitle'],
-        command: (editor: any) => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+        command: (editor: Editor) => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
         title: 'Heading 3',
         description: 'Small section heading',
         icon: <Heading3 className="w-4 h-4" />,
         keywords: ['h3', 'heading'],
-        command: (editor: any) => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+        command: (editor: Editor) => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
         title: 'Bullet List',
         description: 'Create a simple bullet list',
         icon: <List className="w-4 h-4" />,
         keywords: ['ul', 'unordered', 'bullet'],
-        command: (editor: any) => editor.chain().focus().toggleBulletList().run(),
+        command: (editor: Editor) => editor.chain().focus().toggleBulletList().run(),
     },
     {
         title: 'Numbered List',
         description: 'Create a numbered list',
         icon: <ListOrdered className="w-4 h-4" />,
         keywords: ['ol', 'ordered', 'numbered'],
-        command: (editor: any) => editor.chain().focus().toggleOrderedList().run(),
+        command: (editor: Editor) => editor.chain().focus().toggleOrderedList().run(),
     },
     {
         title: 'Task List',
         description: 'Create a checklist with todos',
         icon: <CheckSquare className="w-4 h-4" />,
         keywords: ['todo', 'task', 'checkbox'],
-        command: (editor: any) => editor.chain().focus().toggleTaskList().run(),
+        command: (editor: Editor) => editor.chain().focus().toggleTaskList().run(),
     },
     {
         title: 'Code Block',
         description: 'Add a code block',
         icon: <Code className="w-4 h-4" />,
         keywords: ['code', 'pre', 'programming'],
-        command: (editor: any) => editor.chain().focus().toggleCodeBlock().run(),
+        command: (editor: Editor) => editor.chain().focus().toggleCodeBlock().run(),
     },
     {
         title: 'Quote',
         description: 'Add a blockquote',
         icon: <Quote className="w-4 h-4" />,
         keywords: ['blockquote', 'quote'],
-        command: (editor: any) => editor.chain().focus().toggleBlockquote().run(),
+        command: (editor: Editor) => editor.chain().focus().toggleBlockquote().run(),
     },
     {
         title: 'Divider',
         description: 'Add a horizontal rule',
         icon: <Minus className="w-4 h-4" />,
         keywords: ['hr', 'divider', 'separator'],
-        command: (editor: any) => editor.chain().focus().setHorizontalRule().run(),
+        command: (editor: Editor) => editor.chain().focus().setHorizontalRule().run(),
     },
     {
         title: 'Image',
         description: 'Insert an image',
         icon: <Image className="w-4 h-4" />,
         keywords: ['image', 'picture', 'photo'],
-        command: (editor: any) => {
+        command: (editor: Editor) => {
             const url = window.prompt('Enter image URL');
             if (url) {
                 editor.chain().focus().setImage({ src: url }).run();
@@ -109,7 +109,7 @@ const defaultCommands: SlashCommand[] = [
         description: 'Add a hyperlink',
         icon: <Link className="w-4 h-4" />,
         keywords: ['link', 'url', 'href'],
-        command: (editor: any) => {
+        command: (editor: Editor) => {
             const url = window.prompt('Enter URL');
             if (url) {
                 editor.chain().focus().setLink({ href: url }).run();
@@ -121,7 +121,7 @@ const defaultCommands: SlashCommand[] = [
         description: 'Insert a table',
         icon: <Table className="w-4 h-4" />,
         keywords: ['table', 'grid'],
-        command: (editor: any) => {
+        command: (editor: Editor) => {
             editor.chain().focus().insertTable({ rows: 3, cols: 3 }).run();
         },
     },

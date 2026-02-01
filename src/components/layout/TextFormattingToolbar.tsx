@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useEditor } from "@/hooks/useEditorContext";
+import { useEditor } from '@/hooks/useEditor';
 import {
     AlignLeft,
     AlignCenter,
@@ -11,6 +11,7 @@ import {
     PaintBucket,
     Baseline
 } from "lucide-react";
+import { TLShape, TLTextShape, TLNoteShape } from "tldraw";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -105,7 +106,7 @@ export const TextFormattingToolbar = () => {
             // Check if all shapes are of the same type and that type is supported
             const firstType = selectedShapes[0].type;
             const isSupportedType = firstType === 'text' || firstType === 'note';
-            const allSameType = selectedShapes.every((shape: any) => shape.type === firstType);
+            const allSameType = selectedShapes.every((shape: TLShape) => shape.type === firstType);
 
             if (!isSupportedType || !allSameType) {
                 setIsVisible(false);
@@ -114,7 +115,7 @@ export const TextFormattingToolbar = () => {
 
             const targetShapes = selectedShapes;
             // Use first shape for initial state
-            const primaryShape = targetShapes[0] as any;
+            const primaryShape = targetShapes[0];
 
             // Calculate position based on selection bounds
             try {
@@ -142,19 +143,22 @@ export const TextFormattingToolbar = () => {
 
                     // Update state from primary shape
                     if (primaryShape.props) {
-                        setSelectedFont(primaryShape.props.font || 'sans');
-                        const sizeKey = primaryShape.props.size || 'm';
-                        const scale = primaryShape.props.scale ?? 1;
+                        const shape = primaryShape as TLTextShape | TLNoteShape;
+                        setSelectedFont((shape.props as any).font || 'sans');
+                        const sizeKey = (shape.props as any).size || 'm';
+                        const scale = (shape.props as any).scale ?? 1;
                         const baseSize = BASE_SIZES[sizeKey] || 24;
                         setCurrentSize(Math.round(baseSize * scale));
 
                         if (primaryShape.type === 'note') {
-                            setSelectedTextAlign(primaryShape.props.align || 'middle');
-                            setSelectedTextColor(primaryShape.props.labelColor || 'black');
-                            setSelectedFillColor(primaryShape.props.color || 'yellow');
+                            const note = primaryShape as TLNoteShape;
+                            setSelectedTextAlign(note.props.align || 'middle');
+                            setSelectedTextColor(note.props.labelColor || 'black');
+                            setSelectedFillColor(note.props.color || 'yellow');
                         } else {
-                            setSelectedTextAlign(primaryShape.props.textAlign || 'start');
-                            setSelectedTextColor(primaryShape.props.color || 'black');
+                            const text = primaryShape as TLTextShape;
+                            setSelectedTextAlign(text.props.textAlign || 'start');
+                            setSelectedTextColor(text.props.color || 'black');
                             setSelectedFillColor('transparent');
                         }
                     }
@@ -205,7 +209,7 @@ export const TextFormattingToolbar = () => {
         if (!editor) return;
         const selectedShapes = editor.getSelectedShapes();
         // Update both text and note shapes if they support font
-        const textShapes = selectedShapes.filter((shape: any) => shape.type === 'text' || shape.type === 'note');
+        const textShapes = selectedShapes.filter((shape: TLShape) => shape.type === 'text' || shape.type === 'note');
 
         textShapes.forEach((shape) => {
             editor.updateShape({
@@ -222,10 +226,11 @@ export const TextFormattingToolbar = () => {
         if (!editor || newSize < 4 || newSize > 200) return;
 
         const selectedShapes = editor.getSelectedShapes();
-        const targetShapes = selectedShapes.filter((shape: any) => shape.type === 'text' || shape.type === 'note');
+        const targetShapes = selectedShapes.filter((shape: TLShape) => shape.type === 'text' || shape.type === 'note');
 
-        targetShapes.forEach((shape: any) => {
-            const sizeKey = shape.props.size || 'm';
+        targetShapes.forEach((s: TLShape) => {
+            const shape = s as TLTextShape | TLNoteShape;
+            const sizeKey = (shape.props as any).size || 'm';
             const baseSize = BASE_SIZES[sizeKey] || 24;
             const newScale = newSize / baseSize;
 
@@ -246,9 +251,9 @@ export const TextFormattingToolbar = () => {
     const handleColorChange = (key: string, value: string) => {
         if (!editor) return;
         const selectedShapes = editor.getSelectedShapes();
-        const targetShapes = selectedShapes.filter((shape: any) => shape.type === 'text' || shape.type === 'note');
+        const targetShapes = selectedShapes.filter((shape: TLShape) => shape.type === 'text' || shape.type === 'note');
 
-        targetShapes.forEach((shape: any) => {
+        targetShapes.forEach((shape: TLShape) => {
             const propName = key === 'fill' ? 'color' : (shape.type === 'note' ? 'labelColor' : 'color');
             if (key === 'fill' && shape.type !== 'note') return;
 
@@ -266,9 +271,9 @@ export const TextFormattingToolbar = () => {
     const handleAlignChange = (align: string) => {
         if (!editor) return;
         const selectedShapes = editor.getSelectedShapes();
-        const targetShapes = selectedShapes.filter((shape: any) => shape.type === 'text' || shape.type === 'note');
+        const targetShapes = selectedShapes.filter((shape: TLShape) => shape.type === 'text' || shape.type === 'note');
 
-        targetShapes.forEach((shape: any) => {
+        targetShapes.forEach((shape: TLShape) => {
             const propName = shape.type === 'note' ? 'align' : 'textAlign';
             editor.updateShape({
                 id: shape.id,

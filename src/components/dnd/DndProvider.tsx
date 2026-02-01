@@ -12,7 +12,7 @@ export interface DraggableItem {
         filename?: string;
         thumbnailPath?: string;
         color?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 

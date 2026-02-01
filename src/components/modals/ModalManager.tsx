@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useUIStore, useCardStore } from "@/stores";
-import { useEditor } from "@/hooks/useEditorContext";
+import { useEditor } from '@/hooks/useEditor';
 import { GlobalSearch } from "@/components/search";
 import type { TLShapeId } from "tldraw";
 

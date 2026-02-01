@@ -89,3 +89,23 @@ export const STORAGE_KEYS = {
     BOARD_PREFIX: 'visual-thinking-board-',
     LINKS: 'visual-thinking-links',
 } as const;
+
+// Tool ID mapping from our UI to tldraw tool IDs
+export const TOOL_MAP: Record<string, string> = {
+    select: 'select',
+    hand: 'hand',
+    draw: 'draw',
+    eraser: 'eraser',
+    arrow: 'arrow',
+    text: 'text',
+    rectangle: 'geo',
+    ellipse: 'geo',
+    frame: 'frame',
+    sticky: 'note',
+    card: 'card',
+    pdf: 'pdf',
+    mindmap: 'card',
+};
+
+// Special actions that aren't tools
+export const ACTION_TOOLS = ['image', 'pdf'];

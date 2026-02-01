@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Editor, getSnapshot, loadSnapshot } from 'tldraw';
+import { Editor, getSnapshot, loadSnapshot, TLStoreSnapshot, TLRecord } from 'tldraw';
 import { TldrawWrapper } from './TldrawWrapper';
 import { patchAssetsInSnapshot } from './tldrawUtils';
 import { useProjectStore } from '@/stores';
-import { useEditor } from '@/hooks/useEditorContext';
+import { useEditor } from '@/hooks/useEditor';
 import { createLogger } from '@/lib/logger';
 import { THUMBNAIL } from '@/lib/constants';
 
@@ -15,12 +15,12 @@ interface CanvasAreaProps {
 
 // Sanitize snapshot before saving: remove absolute paths (src) from assets
 // to ensure portability. We only keep 'meta.relativePath'.
-const sanitizeSnapshot = (snapshotObj: any) => {
+const sanitizeSnapshot = (snapshotObj: TLStoreSnapshot) => {
   if (!snapshotObj || !snapshotObj.store) return snapshotObj;
 
   const store = snapshotObj.store;
   // Clone to avoid mutating original state if it's being used elsewhere
-  const cleanStore: Record<string, any> = {};
+  const cleanStore: Record<string, TLRecord> = {};
 
   Object.keys(store).forEach(key => {
     const record = { ...store[key] };
@@ -176,10 +176,16 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
   const currentBoardId = boardId || activeBoardId || 'default';
   const previousBoardRef = useRef<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const thumbnailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Save current board and capture thumbnail when switching away
   useEffect(() => {
     return () => {
+      // Clear any pending thumbnail save
+      if (thumbnailTimeoutRef.current) {
+        clearTimeout(thumbnailTimeoutRef.current);
+      }
+
       // Cleanup: save snapshot when unmounting or board changes
       if (editorRef.current && previousBoardRef.current) {
         const editor = editorRef.current;
@@ -257,6 +263,21 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
     // Auto-save snapshot to SQLite
     saveBoardSnapshot(currentBoardId, snapshot);
 
+    // Debounced Thumbnail Capture (3 seconds)
+    if (thumbnailTimeoutRef.current) {
+      clearTimeout(thumbnailTimeoutRef.current);
+    }
+
+    thumbnailTimeoutRef.current = setTimeout(() => {
+      if (editorRef.current && activeProjectId) {
+        captureCanvasThumbnail(editorRef.current).then((thumbnail) => {
+          if (thumbnail) {
+            updateProject(activeProjectId, { thumbnailPath: thumbnail });
+            log.debug('Auto-saved thumbnail');
+          }
+        });
+      }
+    }, 3000);
 
   }, [currentBoardId, activeProjectId, updateProject]);
 

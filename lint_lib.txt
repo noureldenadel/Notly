@@ -1,0 +1,14 @@
+﻿
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\lib\assetManager.ts
+  211:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\lib\persistence\tauri.ts
+  357:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\lib\projectBundle.ts
+  194:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  392:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  402:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 5 problems (5 errors, 0 warnings)
+

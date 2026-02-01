@@ -9,6 +9,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { createLogger } from '@/lib/logger';
 import { isTauri, getAssetsDir, saveBytesToAssets, getAssetUrl } from '@/lib/assetManager';
 import type { Project, Board } from '@/lib/persistence/types';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
 const log = createLogger('ProjectBundle');
 
@@ -132,9 +134,43 @@ export async function exportProjectBundle(projectId: string): Promise<void> {
         boardsFolder?.file(`${board.id}.json`, JSON.stringify(board, null, 2));
     }
 
-    // Generate and download
+    // Generate blob
     const blob = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(blob, `${sanitizeFilename(project.title)}.notly`);
+    const filename = `${sanitizeFilename(project.title)}.notly`;
+
+    if (isTauri()) {
+        try {
+            // Open native save dialog
+            const filePath = await save({
+                defaultPath: filename,
+                filters: [{
+                    name: 'Notly Project',
+                    extensions: ['notly']
+                }]
+            });
+
+            if (filePath) {
+                // Convert blob to Uint8Array/ArrayBuffer for writing
+                const buffer = await blob.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+
+                // Write file to selected path
+                await writeFile(filePath, bytes);
+                log.info('Project saved to:', filePath);
+                // Return explicitly to avoid falling through to downloadBlob
+                return;
+            } else {
+                log.info('Export cancelled by user');
+                return;
+            }
+        } catch (e) {
+            log.error('Failed to save file via native dialog:', e);
+            // Fallback to default download if dialog fails
+        }
+    }
+
+    // Fallback / Web mode: Download via browser API
+    downloadBlob(blob, filename);
 
     log.info('Export complete:', project.title);
 }
@@ -353,7 +389,7 @@ async function saveImportedAsset(data: Uint8Array, filename: string): Promise<st
     try {
         if (!isTauri()) {
             // In web mode, create a data URL
-            const blob = new Blob([data as any]);
+            const blob = new Blob([data as unknown as BlobPart]);
             return URL.createObjectURL(blob);
         }
 
@@ -363,7 +399,7 @@ async function saveImportedAsset(data: Uint8Array, filename: string): Promise<st
         const fileType = isImage ? 'image' : 'pdf';
 
         // Create a File object from the data
-        const file = new File([data as any], filename, {
+        const file = new File([data as unknown as BlobPart], filename, {
             type: isImage ? `image/${ext}` : 'application/pdf'
         });
 

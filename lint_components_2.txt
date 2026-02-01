@@ -1,0 +1,71 @@
+﻿
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\canvas\TldrawWrapper.tsx
+  111:63  error    Unexpected any. Specify a different type                                                                                                             @typescript-eslint/no-explicit-any
+  134:63  error    Unexpected any. Specify a different type                                                                                                             @typescript-eslint/no-explicit-any
+  271:24  error    React Hook "useEditor" cannot be called inside a callback. React Hooks must be called in a React function component or a custom React Hook function  react-hooks/rules-of-hooks
+  364:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                       react-refresh/only-export-components
+  394:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                       react-refresh/only-export-components
+  425:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                       react-refresh/only-export-components
+  460:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                       react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\canvas\shapes\MindMapShape.tsx
+  102:7   warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file                                                        react-refresh/only-export-components
+  375:24  error    React Hook "useEditor" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function        react-hooks/rules-of-hooks
+  377:30  error    React Hook "useRef" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function           react-hooks/rules-of-hooks
+  389:9   error    React Hook "useLayoutEffect" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function  react-hooks/rules-of-hooks
+  427:32  error    React Hook "useCallback" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function      react-hooks/rules-of-hooks
+  447:12  warning  React Hook useCallback has a missing dependency: 'updateRoot'. Either include it or remove the dependency array                                               react-hooks/exhaustive-deps
+  449:34  error    React Hook "useCallback" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function      react-hooks/rules-of-hooks
+  453:12  warning  React Hook useCallback has a missing dependency: 'updateRoot'. Either include it or remove the dependency array                                               react-hooks/exhaustive-deps
+  455:30  error    React Hook "useCallback" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function      react-hooks/rules-of-hooks
+  458:12  warning  React Hook useCallback has a missing dependency: 'updateRoot'. Either include it or remove the dependency array                                               react-hooks/exhaustive-deps
+  460:38  error    React Hook "useCallback" cannot be called in a class component. React Hooks must be called in a React function component or a custom React Hook function      react-hooks/rules-of-hooks
+  467:12  warning  React Hook useCallback has a missing dependency: 'updateRoot'. Either include it or remove the dependency array                                               react-hooks/exhaustive-deps
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\dnd\SortableList.tsx
+  71:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\editor\extensions\SlashCommands.tsx
+  227:15  error  Unexpected aliasing of 'this' to local variable  @typescript-eslint/no-this-alias
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\layout\TextFormattingToolbar.tsx
+  147:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\pdf\PDFThumbnail.tsx
+  90:23  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\projects\ProjectCard.tsx
+  30:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\badge.tsx
+  29:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\button.tsx
+  47:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\command.tsx
+  24:11  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\form.tsx
+  129:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\sidebar.tsx
+  636:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\sonner.tsx
+  27:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\textarea.tsx
+  5:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+C:\Users\noure\Desktop\pixel-perfect-pages-main\src\components\ui\toggle.tsx
+  37:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+Γ£û 36 problems (17 errors, 19 warnings)
+

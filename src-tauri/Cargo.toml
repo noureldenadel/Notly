@@ -1,6 +1,6 @@
 [package]
 name = "notly"
-version = "0.1.0"
+version = "1.1.0-beta"
 description = "Nōtly - Visual Thinking & Knowledge Management App"
 authors = ["you"]
 license = "MIT"
