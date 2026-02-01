@@ -507,7 +507,7 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                             Reset to Defaults
                         </Button>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">v0.1.0</span>
+                            <span className="text-xs text-muted-foreground">v1.1.0-beta</span>
                             <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase bg-primary/10 text-primary rounded">
                                 Beta
                             </span>

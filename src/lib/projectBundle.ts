@@ -107,7 +107,7 @@ export async function exportProjectBundle(projectId: string): Promise<void> {
     const manifest: BundleManifest = {
         version: '1.0',
         exportedAt: Date.now(),
-        appVersion: '0.1.0-beta',
+        appVersion: '1.1.0-beta',
         projectName: project.title,
         projectId: project.id,
         boardCount: boardsData.length,
