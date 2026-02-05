@@ -39,8 +39,9 @@ function countWords(content: string): number {
     return text.split(/\s+/).filter((word) => word.length > 0).length;
 }
 
-// Debounced save function
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+// Per-card debounce timers to prevent data loss when editing multiple cards
+const saveTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 async function saveCardToPersistence(card: Card) {
     try {
         const { getPersistence } = await import('@/lib/persistence');
@@ -63,8 +64,13 @@ async function saveCardToPersistence(card: Card) {
 }
 
 function debouncedSave(card: Card) {
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => saveCardToPersistence(card), 500);
+    const existingTimeout = saveTimeouts.get(card.id);
+    if (existingTimeout) clearTimeout(existingTimeout);
+    const timeout = setTimeout(() => {
+        saveCardToPersistence(card);
+        saveTimeouts.delete(card.id);
+    }, 500);
+    saveTimeouts.set(card.id, timeout);
 }
 
 // Immediately save card (for new cards)
@@ -92,6 +98,7 @@ export const useCardStore = create<CardState>()(
 
         // Load cards from persistence
         loadCards: async () => {
+            if (get().isLoaded) return; // Prevent duplicate loads
             try {
                 const { getPersistence } = await import('@/lib/persistence');
                 const p = await getPersistence();
@@ -145,32 +152,51 @@ export const useCardStore = create<CardState>()(
         },
 
         updateCard: (id, updates) => {
+            // Recalculate word count if content changed
+            if (updates.content !== undefined) {
+                updates.wordCount = countWords(updates.content);
+            }
             set((state) => {
                 const card = state.cards.find((c) => c.id === id);
                 if (card) {
-                    // Recalculate word count if content changed
-                    if (updates.content !== undefined) {
-                        updates.wordCount = countWords(updates.content);
-                    }
                     Object.assign(card, updates, { updatedAt: Date.now() });
-                    // Persist and re-index
-                    debouncedSave({ ...card });
-                    indexCard({ ...card });
                 }
             });
+            // Move async calls outside set() to avoid Immer proxy issues
+            const updatedCard = get().getCard(id);
+            if (updatedCard) {
+                debouncedSave(updatedCard);
+                indexCard(updatedCard);
+            }
         },
 
         deleteCard: (id) => {
+            // Capture card before deletion for error recovery
+            const cardToDelete = get().getCard(id);
+
             set((state) => {
                 state.cards = state.cards.filter((c) => c.id !== id);
             });
-            // Remove from persistence and search index
-            (async () => {
-                const { getPersistence } = await import('@/lib/persistence');
-                const p = await getPersistence();
-                await p.deleteCard(id);
-            })();
             removeDocument(id);
+
+            // Persist deletion with error recovery
+            (async () => {
+                try {
+                    const { getPersistence } = await import('@/lib/persistence');
+                    const p = await getPersistence();
+                    await p.deleteCard(id);
+                    log.debug('Deleted card:', id);
+                } catch (e) {
+                    log.error('Failed to delete card from persistence, restoring:', e);
+                    // Restore card on failure
+                    if (cardToDelete) {
+                        set((state) => {
+                            state.cards.push(cardToDelete);
+                        });
+                        indexCard(cardToDelete);
+                    }
+                }
+            })();
         },
 
         duplicateCard: (id) => {
@@ -202,11 +228,14 @@ export const useCardStore = create<CardState>()(
                     card.content = content;
                     card.wordCount = countWords(content);
                     card.updatedAt = Date.now();
-                    // Persist and re-index
-                    debouncedSave({ ...card });
-                    indexCard({ ...card });
                 }
             });
+            // Move async calls outside set()
+            const updatedCard = get().getCard(id);
+            if (updatedCard) {
+                debouncedSave(updatedCard);
+                indexCard(updatedCard);
+            }
         },
 
         updateCardTitle: (id, title) => {
@@ -215,11 +244,14 @@ export const useCardStore = create<CardState>()(
                 if (card) {
                     card.title = title;
                     card.updatedAt = Date.now();
-                    // Persist and re-index
-                    debouncedSave({ ...card });
-                    indexCard({ ...card });
                 }
             });
+            // Move async calls outside set()
+            const updatedCard = get().getCard(id);
+            if (updatedCard) {
+                debouncedSave(updatedCard);
+                indexCard(updatedCard);
+            }
         },
 
         toggleCardHidden: (id) => {
@@ -228,10 +260,13 @@ export const useCardStore = create<CardState>()(
                 if (card) {
                     card.isHidden = !card.isHidden;
                     card.updatedAt = Date.now();
-                    // Persist
-                    debouncedSave({ ...card });
                 }
             });
+            // Move async calls outside set()
+            const updatedCard = get().getCard(id);
+            if (updatedCard) {
+                debouncedSave(updatedCard);
+            }
         },
 
         // Getters

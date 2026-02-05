@@ -59,13 +59,13 @@ interface ProjectState {
     loadProjects: () => Promise<void>;
 
     // Project actions
-    createProject: (title: string, description?: string, color?: string) => Project;
+    createProject: (title: string, description?: string, color?: string) => Promise<Project>;
     updateProject: (id: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>) => void;
     deleteProject: (id: string) => void;
     setActiveProject: (id: string | null) => void;
 
     // Board actions
-    createBoard: (projectId: string, title: string, parentBoardId?: string) => Board;
+    createBoard: (projectId: string, title: string, parentBoardId?: string) => Promise<Board>;
     updateBoard: (id: string, updates: Partial<Omit<Board, 'id' | 'projectId' | 'createdAt'>>) => void;
     deleteBoard: (id: string) => void;
     setActiveBoard: (id: string | null) => void;
@@ -128,7 +128,7 @@ export const useProjectStore = create<ProjectState>()(
             },
 
             // Project actions
-            createProject: (title, description, color) => {
+            createProject: async (title, description, color) => {
                 const now = Date.now();
 
                 // Random color if not provided
@@ -159,7 +159,8 @@ export const useProjectStore = create<ProjectState>()(
                     state.activeProjectId = project.id;
                     state.activeBoardId = null;
                 });
-                saveProjectToPersistence(project);
+                // Await persistence to ensure project exists before boards can reference it
+                await saveProjectToPersistence(project);
                 return project;
             },
 
@@ -168,15 +169,18 @@ export const useProjectStore = create<ProjectState>()(
                     const project = state.projects.find((p) => p.id === id);
                     if (project) {
                         Object.assign(project, updates, { updatedAt: Date.now() });
-                        // Clone the project to avoid Immer proxy revocation in async function
-                        const projectClone = { ...project };
-                        saveProjectToPersistence(projectClone);
                     }
                 });
+                // Move async call outside set() to avoid Immer proxy issues
+                const updatedProject = get().getProject(id);
+                if (updatedProject) {
+                    saveProjectToPersistence(updatedProject);
+                }
             },
 
             deleteProject: (id) => {
-                // Capture boards to delete before modifying state
+                // Capture project and boards for error recovery
+                const projectToDelete = get().getProject(id);
                 const boardsToDelete = get().boards.filter((b) => b.projectId === id);
 
                 set((state) => {
@@ -188,13 +192,25 @@ export const useProjectStore = create<ProjectState>()(
                     }
                 });
 
-                // Delete from persistence (outside of set)
+                // Delete from persistence with error recovery
                 (async () => {
-                    const { getPersistence } = await import('@/lib/persistence');
-                    const p = await getPersistence();
-                    await p.deleteProject(id);
-                    for (const board of boardsToDelete) {
-                        await p.deleteBoard(board.id);
+                    try {
+                        const { getPersistence } = await import('@/lib/persistence');
+                        const p = await getPersistence();
+                        await p.deleteProject(id);
+                        for (const board of boardsToDelete) {
+                            await p.deleteBoard(board.id);
+                        }
+                        log.debug('Deleted project:', id);
+                    } catch (e) {
+                        log.error('Failed to delete project from persistence, restoring:', e);
+                        // Restore project and boards on failure
+                        if (projectToDelete) {
+                            set((state) => {
+                                state.projects.push(projectToDelete);
+                                boardsToDelete.forEach(b => state.boards.push(b));
+                            });
+                        }
                     }
                 })();
             },
@@ -219,7 +235,7 @@ export const useProjectStore = create<ProjectState>()(
             },
 
             // Board actions
-            createBoard: (projectId, title, parentBoardId) => {
+            createBoard: async (projectId, title, parentBoardId) => {
                 const now = Date.now();
                 const existingBoards = get().boards.filter((b) => b.projectId === projectId);
                 const board: Board = {
@@ -236,7 +252,8 @@ export const useProjectStore = create<ProjectState>()(
                     // Automatically switch to new board
                     state.activeBoardId = board.id;
                 });
-                saveBoardToPersistence(board);
+                // Await persistence to ensure board exists before canvas can save snapshots
+                await saveBoardToPersistence(board);
                 return board;
             },
 
@@ -245,19 +262,25 @@ export const useProjectStore = create<ProjectState>()(
                     const board = state.boards.find((b) => b.id === id);
                     if (board) {
                         Object.assign(board, updates, { updatedAt: Date.now() });
-                        // Clone to avoid Immer proxy revocation
-                        const boardClone = { ...board };
-                        saveBoardToPersistence(boardClone);
                     }
                 });
+                // Move async call outside set() to avoid Immer proxy issues
+                const updatedBoard = get().getBoard(id);
+                if (updatedBoard) {
+                    saveBoardToPersistence(updatedBoard);
+                }
             },
 
             deleteBoard: (id) => {
-                set((state) => {
-                    const boardToDelete = state.boards.find((b) => b.id === id);
-                    if (!boardToDelete) return;
+                // Capture board for error recovery
+                const boardToDelete = get().getBoard(id);
+                let newBoardCreated: Board | null = null;
 
-                    const projectId = boardToDelete.projectId;
+                set((state) => {
+                    const stateBoard = state.boards.find((b) => b.id === id);
+                    if (!stateBoard) return;
+
+                    const projectId = stateBoard.projectId;
                     const projectBoards = state.boards.filter((b) => b.projectId === projectId);
 
                     // Safety check: Is this the last board?
@@ -273,29 +296,38 @@ export const useProjectStore = create<ProjectState>()(
                             updatedAt: now,
                         };
                         state.boards.push(newBoard);
-
-                        // Switch to new board
                         state.activeBoardId = newBoard.id;
-
-                        // Save new board
-                        saveBoardToPersistence(newBoard);
+                        newBoardCreated = newBoard;
                     } else if (state.activeBoardId === id) {
-                        // If deleting the active board, switch to another one (e.g. the first available that isn't the one being deleted)
                         const nextBoard = projectBoards.find(b => b.id !== id);
                         if (nextBoard) {
                             state.activeBoardId = nextBoard.id;
                         }
                     }
 
-                    // Delete the target board
                     state.boards = state.boards.filter((b) => b.id !== id);
                 });
 
-                // Delete from persistence
+                // Save new board outside set() if created
+                if (newBoardCreated) {
+                    saveBoardToPersistence(newBoardCreated);
+                }
+
+                // Delete from persistence with error recovery
                 (async () => {
-                    const { getPersistence } = await import('@/lib/persistence');
-                    const p = await getPersistence();
-                    await p.deleteBoard(id);
+                    try {
+                        const { getPersistence } = await import('@/lib/persistence');
+                        const p = await getPersistence();
+                        await p.deleteBoard(id);
+                        log.debug('Deleted board:', id);
+                    } catch (e) {
+                        log.error('Failed to delete board from persistence, restoring:', e);
+                        if (boardToDelete) {
+                            set((state) => {
+                                state.boards.push(boardToDelete);
+                            });
+                        }
+                    }
                 })();
             },
 
@@ -307,18 +339,20 @@ export const useProjectStore = create<ProjectState>()(
 
             reorderBoards: (projectId: string, boardIds: string[]) => {
                 set((state) => {
-                    // Update position for each board in the list
                     boardIds.forEach((id, index) => {
                         const board = state.boards.find((b) => b.id === id && b.projectId === projectId);
                         if (board) {
                             board.position = index;
                             board.updatedAt = Date.now();
-                            // Clone to avoid Immer proxy revocation issues with async calls
-                            const boardClone = { ...board };
-                            // Persist change
-                            saveBoardToPersistence(boardClone);
                         }
                     });
+                });
+                // Persist all reordered boards outside set()
+                boardIds.forEach((id) => {
+                    const board = get().getBoard(id);
+                    if (board) {
+                        saveBoardToPersistence(board);
+                    }
                 });
                 log.debug('Boards reordered for project:', projectId);
             },
@@ -340,3 +374,4 @@ export const useProjectStore = create<ProjectState>()(
         }
     )
 );
+

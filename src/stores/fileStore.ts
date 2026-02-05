@@ -90,7 +90,15 @@ export const useFileStore = create<FileState>()(
                         importMode: f.importMode as 'copy' | 'link',
                         createdAt: f.createdAt,
                         updatedAt: f.updatedAt,
-                        metadata: f.metadata ? JSON.parse(f.metadata) : undefined,
+                        metadata: (() => {
+                            if (!f.metadata) return undefined;
+                            try {
+                                return JSON.parse(f.metadata);
+                            } catch {
+                                log.warn('Failed to parse file metadata for:', f.id);
+                                return undefined;
+                            }
+                        })(),
                     }));
                     state.isLoaded = true;
                 });
@@ -129,20 +137,38 @@ export const useFileStore = create<FileState>()(
                 const file = state.files.find((f) => f.id === id);
                 if (file) {
                     Object.assign(file, updates, { updatedAt: Date.now() });
-                    saveFileToPersistence(file);
                 }
             });
+            // Move async call outside set()
+            const updatedFile = get().getFile(id);
+            if (updatedFile) {
+                saveFileToPersistence(updatedFile);
+            }
         },
 
         deleteFile: (id) => {
+            // Capture file for error recovery
+            const fileToDelete = get().getFile(id);
+
             set((state) => {
                 state.files = state.files.filter((f) => f.id !== id);
             });
-            // Delete from persistence
+
+            // Delete from persistence with error recovery
             (async () => {
-                const { getPersistence } = await import('@/lib/persistence');
-                const p = await getPersistence();
-                await p.deleteFile(id);
+                try {
+                    const { getPersistence } = await import('@/lib/persistence');
+                    const p = await getPersistence();
+                    await p.deleteFile(id);
+                    log.debug('Deleted file:', id);
+                } catch (e) {
+                    log.error('Failed to delete file from persistence, restoring:', e);
+                    if (fileToDelete) {
+                        set((state) => {
+                            state.files.push(fileToDelete);
+                        });
+                    }
+                }
             })();
         },
 
@@ -152,9 +178,13 @@ export const useFileStore = create<FileState>()(
                 if (file) {
                     file.thumbnailPath = thumbnailPath;
                     file.updatedAt = Date.now();
-                    saveFileToPersistence(file);
                 }
             });
+            // Move async call outside set()
+            const updatedFile = get().getFile(id);
+            if (updatedFile) {
+                saveFileToPersistence(updatedFile);
+            }
         },
 
         // Getters

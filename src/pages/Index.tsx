@@ -33,6 +33,7 @@ function IndexContent() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+
   // UI Actions - using atomic selectors where possible or just the hook if actions are stable
   const activeTool = useUIStore(s => s.activeTool);
   const setActiveTool = useUIStore(s => s.setActiveTool);
@@ -321,9 +322,9 @@ function IndexContent() {
             boards={boards}
             activeBoard={activeBoard}
             onBoardChange={(boardId) => setActiveBoard(boardId)}
-            onAddBoard={() => {
+            onAddBoard={async () => {
               if (activeProjectId) {
-                const board = createBoard(activeProjectId, 'New Board');
+                const board = await createBoard(activeProjectId, 'New Board');
                 setActiveBoard(board.id);
               }
             }}
@@ -336,11 +337,11 @@ function IndexContent() {
             onBoardReorder={(newOrder) => {
               if (activeProjectId) reorderBoards(activeProjectId, newOrder);
             }}
-            onBoardDuplicate={(boardId) => {
+            onBoardDuplicate={async (boardId) => {
               if (activeProjectId) {
                 const originalBoard = boards.find(b => b.id === boardId);
                 if (originalBoard) {
-                  const newBoard = createBoard(activeProjectId, `${originalBoard.name} (Copy)`);
+                  const newBoard = await createBoard(activeProjectId, `${originalBoard.name} (Copy)`);
                   setActiveBoard(newBoard.id);
                 }
               }

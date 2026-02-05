@@ -25,33 +25,31 @@ export const isTauri = (): boolean => {
  */
 let persistenceInstance: PersistenceAPI | null = null;
 
+// Reverting to localStorage for stability as requested by user
+// Previously: Checked isTauri() and used tauriAdapter
 export async function getPersistence(): Promise<PersistenceAPI> {
     if (persistenceInstance) {
         return persistenceInstance;
     }
 
-    if (isTauri()) {
-        // Dynamically import Tauri adapter to avoid errors in web mode
-        const { tauriAdapter } = await import('./tauri');
-        persistenceInstance = tauriAdapter;
-        log.debug('Using Tauri SQLite adapter');
-    } else {
-        persistenceInstance = indexeddbAdapter;
-        log.debug('Using IndexedDB adapter');
-    }
+    // Force usage of localStorageAdapter for both Web and Tauri
+    // This avoids the complex async SQLite race conditions
+    persistenceInstance = localStorageAdapter;
+    log.debug('Using localStorage adapter (forced)');
 
     await persistenceInstance.init();
     return persistenceInstance;
 }
 
 /**
- * Synchronous getter for persistence (must call getPersistence first)
+ * Synchronous getter for persistence (must call getPersistence/initPersistence first)
+ * @throws Error if called before initialization
  */
 export function persistence(): PersistenceAPI {
     if (!persistenceInstance) {
-        // Fallback or lazy init
-        persistenceInstance = indexeddbAdapter;
-        log.warn('Using IndexedDB (not initialized yet)');
+        throw new Error(
+            'Persistence not initialized. Call initPersistence() or getPersistence() first.'
+        );
     }
     return persistenceInstance;
 }

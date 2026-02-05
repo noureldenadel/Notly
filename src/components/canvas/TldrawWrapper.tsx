@@ -224,6 +224,30 @@ export function TldrawWrapper({
             onEditorReady?.(editor);
 
             log.debug('Editor mounted for board:', boardId);
+
+            // Return cleanup function - crucial for saving before unmount
+            return () => {
+                // Clear any pending debounced save
+                if (saveTimeoutId !== null) {
+                    clearTimeout(saveTimeoutId);
+                    saveTimeoutId = null;
+                }
+                // Clear any pending RAF
+                if (rafId !== null) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
+                // Immediately save current snapshot before unmount (bypass debounce)
+                if (onSnapshotChange) {
+                    try {
+                        const snapshot = getSnapshot(editor.store);
+                        onSnapshotChange(JSON.stringify(snapshot));
+                        log.debug('Saved snapshot on unmount for board:', boardId);
+                    } catch (e) {
+                        log.error('Failed to save snapshot on unmount:', e);
+                    }
+                }
+            };
         },
         [boardId, initialSnapshot, onEditorReady, onSnapshotChange, setEditorRef, setViewport, incrementPendingChanges, recordAutoSave]
     );

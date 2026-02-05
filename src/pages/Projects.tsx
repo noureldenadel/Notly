@@ -42,6 +42,7 @@ type ViewMode = "grid" | "list";
 const Projects = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
+
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<SortOption>("lastViewed");
     const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -105,9 +106,9 @@ const Projects = () => {
     };
 
     // Create new project
-    const handleNewProject = () => {
-        const project = createProject("Untitled Project");
-        const board = createBoard(project.id, "Main Board");
+    const handleNewProject = async () => {
+        const project = await createProject("Untitled Project");
+        const board = await createBoard(project.id, "Main Board");
         setActiveProject(project.id);
         setActiveBoard(board.id);
         toast({
@@ -124,11 +125,11 @@ const Projects = () => {
     };
 
     // Duplicate project
-    const handleDuplicate = (projectId: string) => {
+    const handleDuplicate = async (projectId: string) => {
         const original = projects.find(p => p.id === projectId);
         if (original) {
-            const newProject = createProject(`${original.title} (Copy)`, original.description, original.color);
-            createBoard(newProject.id, "Main Board");
+            const newProject = await createProject(`${original.title} (Copy)`, original.description, original.color);
+            await createBoard(newProject.id, "Main Board");
             toast({ title: "Project duplicated" });
         }
     };

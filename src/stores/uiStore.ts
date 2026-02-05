@@ -16,9 +16,6 @@ interface UIStoreState extends UIState {
     // Sidebar actions
     toggleLeftSidebar: () => void;
     setLeftSidebarCollapsed: (collapsed: boolean) => void;
-    toggleRightSidebar: () => void;
-    setRightSidebarOpen: (open: boolean) => void;
-    setRightSidebarTab: (tab: UIState['rightSidebarTab']) => void;
 
     // Tool actions
     setActiveTool: (tool: string) => void;
@@ -43,8 +40,6 @@ export const useUIStore = create<UIStoreState>()(
         immer((set) => ({
             // Initial UI state
             leftSidebarCollapsed: false,
-            rightSidebarOpen: true,
-            rightSidebarTab: 'info',
             activeTool: 'select',
             theme: 'dark',
             gridVisible: true,
@@ -61,26 +56,6 @@ export const useUIStore = create<UIStoreState>()(
             setLeftSidebarCollapsed: (collapsed) => {
                 set((state) => {
                     state.leftSidebarCollapsed = collapsed;
-                });
-            },
-
-            toggleRightSidebar: () => {
-                set((state) => {
-                    state.rightSidebarOpen = !state.rightSidebarOpen;
-                });
-            },
-
-            setRightSidebarOpen: (open) => {
-                set((state) => {
-                    state.rightSidebarOpen = open;
-                });
-            },
-
-            setRightSidebarTab: (tab) => {
-                set((state) => {
-                    state.rightSidebarTab = tab;
-                    // Auto-open right sidebar when selecting a tab
-                    state.rightSidebarOpen = true;
                 });
             },
 
@@ -146,8 +121,6 @@ export const useUIStore = create<UIStoreState>()(
             name: 'visual-thinking-ui',
             partialize: (state) => ({
                 leftSidebarCollapsed: state.leftSidebarCollapsed,
-                rightSidebarOpen: state.rightSidebarOpen,
-                rightSidebarTab: state.rightSidebarTab,
                 theme: state.theme,
                 gridVisible: state.gridVisible,
                 zoomLevel: state.zoomLevel,
@@ -155,3 +128,4 @@ export const useUIStore = create<UIStoreState>()(
         }
     )
 );
+

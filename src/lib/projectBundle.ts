@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid';
 import { invoke } from '@tauri-apps/api/core';
 import { createLogger } from '@/lib/logger';
 import { isTauri, getAssetsDir, saveBytesToAssets, getAssetUrl } from '@/lib/assetManager';
-import type { Project, Board } from '@/lib/persistence/types';
+import type { Project, Board, Card } from '@/lib/persistence/types';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 
@@ -50,6 +50,19 @@ interface BundleBoard {
 interface AssetReference {
     relativePath: string;
     originalPath: string;
+}
+
+// Card data in bundle
+interface BundleCard {
+    id: string;
+    title?: string;
+    content: string;
+    contentType: string;
+    color?: string;
+    isHidden: boolean;
+    wordCount: number;
+    createdAt: number;
+    updatedAt: number;
 }
 
 /**
@@ -103,6 +116,31 @@ export async function exportProjectBundle(projectId: string): Promise<void> {
         });
     }
 
+    // Collect cardIds from all board snapshots
+    const cardIds = new Set<string>();
+    for (const board of boardsData) {
+        if (board.tldrawSnapshot) {
+            const ids = extractCardIdsFromSnapshot(board.tldrawSnapshot);
+            ids.forEach(id => cardIds.add(id));
+        }
+    }
+
+    // Get cards from persistence
+    const allCards = await persistence.getCards();
+    const cardsData: BundleCard[] = allCards
+        .filter(c => cardIds.has(c.id))
+        .map(c => ({
+            id: c.id,
+            title: c.title,
+            content: c.content,
+            contentType: c.contentType,
+            color: c.color,
+            isHidden: c.isHidden,
+            wordCount: c.wordCount,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+        }));
+
     // Create manifest
     const manifest: BundleManifest = {
         version: '1.0',
@@ -132,6 +170,12 @@ export async function exportProjectBundle(projectId: string): Promise<void> {
     const boardsFolder = zip.folder('boards');
     for (const board of boardsData) {
         boardsFolder?.file(`${board.id}.json`, JSON.stringify(board, null, 2));
+    }
+
+    // Add cards
+    if (cardsData.length > 0) {
+        zip.file('cards.json', JSON.stringify(cardsData, null, 2));
+        log.info('Exported', cardsData.length, 'cards');
     }
 
     // Generate blob
@@ -221,6 +265,30 @@ async function extractAssetsFromSnapshot(
         log.error('Error processing snapshot:', e);
         return { processed: snapshot, assetRefs: [] };
     }
+}
+
+/**
+ * Extract all cardIds from card shapes in a tldraw snapshot
+ */
+function extractCardIdsFromSnapshot(snapshot: string): string[] {
+    const cardIds: string[] = [];
+    try {
+        const data = JSON.parse(snapshot);
+        if (data.store) {
+            for (const [key, value] of Object.entries(data.store)) {
+                // Card shapes have keys like "shape:xxx" with type "card"
+                if (key.startsWith('shape:') && value && typeof value === 'object') {
+                    const shape = value as any;
+                    if (shape.type === 'card' && shape.props?.cardId) {
+                        cardIds.push(shape.props.cardId);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        log.warn('Error extracting cardIds from snapshot:', e);
+    }
+    return cardIds;
 }
 
 /**
@@ -374,6 +442,52 @@ export async function importProjectBundle(file: File): Promise<string> {
         // Save snapshot if exists
         if (snapshot) {
             await persistence.saveCanvasSnapshot(board.id, snapshot);
+        }
+    }
+
+    // Import cards if they exist in bundle
+    const cardsFile = zip.file('cards.json');
+    const cardIdMap = new Map<string, string>(); // old ID -> new ID
+
+    if (cardsFile) {
+        const cardsData: BundleCard[] = JSON.parse(await cardsFile.async('string'));
+
+        for (const card of cardsData) {
+            const newCardId = nanoid();
+            cardIdMap.set(card.id, newCardId);
+
+            // Save card with new ID
+            const newCard: Card = {
+                id: newCardId,
+                title: card.title,
+                content: card.content,
+                contentType: card.contentType,
+                color: card.color,
+                isHidden: card.isHidden,
+                wordCount: card.wordCount,
+                createdAt: now,
+                updatedAt: now,
+            };
+            await persistence.saveCard(newCard);
+        }
+
+        log.info('Imported', cardsData.length, 'cards');
+
+        // Update cardId references in board snapshots
+        if (cardIdMap.size > 0) {
+            for (const board of boards) {
+                const existingSnapshot = await persistence.loadCanvasSnapshot(board.id);
+                if (existingSnapshot) {
+                    let updatedSnapshot = existingSnapshot;
+                    for (const [oldId, newId] of cardIdMap) {
+                        // Replace cardId in shape props
+                        updatedSnapshot = updatedSnapshot.split(`"cardId":"${oldId}"`).join(`"cardId":"${newId}"`);
+                    }
+                    if (updatedSnapshot !== existingSnapshot) {
+                        await persistence.saveCanvasSnapshot(board.id, updatedSnapshot);
+                    }
+                }
+            }
         }
     }
 

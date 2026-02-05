@@ -144,8 +144,6 @@ export interface SearchResult {
 // UI state types
 export interface UIState {
   leftSidebarCollapsed: boolean;
-  rightSidebarOpen: boolean;
-  rightSidebarTab: 'info' | 'library' | 'highlights' | 'boards';
   activeTool: string;
   theme: 'light' | 'dark' | 'system';
   gridVisible: boolean;

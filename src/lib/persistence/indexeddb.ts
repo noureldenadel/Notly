@@ -31,8 +31,16 @@ const STORES = {
     canvasSnapshots: 'canvasSnapshots',
 } as const;
 
-// Helper to open DB
+// Cached database connection to avoid opening new connections on every operation
+let cachedDb: IDBDatabase | null = null;
+
+// Helper to open or get cached DB
 function openDB(): Promise<IDBDatabase> {
+    // Return cached connection if available and still open
+    if (cachedDb) {
+        return Promise.resolve(cachedDb);
+    }
+
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -42,7 +50,16 @@ function openDB(): Promise<IDBDatabase> {
         };
 
         request.onsuccess = (event) => {
-            resolve((event.target as IDBOpenDBRequest).result);
+            const db = (event.target as IDBOpenDBRequest).result;
+
+            // Handle connection closing unexpectedly
+            db.onclose = () => {
+                log.warn('IndexedDB connection closed unexpectedly');
+                cachedDb = null;
+            };
+
+            cachedDb = db;
+            resolve(db);
         };
 
         request.onupgradeneeded = (event) => {
@@ -50,11 +67,6 @@ function openDB(): Promise<IDBDatabase> {
             // Create all object stores
             Object.values(STORES).forEach(storeName => {
                 if (!db.objectStoreNames.contains(storeName)) {
-                    // Use 'id' as key path for all stores except canvasSnapshots potentially?
-                    // Reviewing types: most have 'id'. 
-                    // canvasSnapshots interface: { boardId, snapshot } -> we can use boardId as key or composite.
-                    // Let's use 'id' for entities. For snapshots, we'll store objects with 'boardId' and use 'boardId' as key.
-
                     if (storeName === 'canvasSnapshots') {
                         db.createObjectStore(storeName, { keyPath: 'boardId' });
                     } else {
@@ -65,6 +77,7 @@ function openDB(): Promise<IDBDatabase> {
         };
     });
 }
+
 
 // Generic Helpers
 async function getAll<T>(storeName: string): Promise<T[]> {

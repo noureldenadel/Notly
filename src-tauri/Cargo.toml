@@ -24,7 +24,6 @@ log = "0.4"
 chrono = "0.4"
 tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-log = "2"
-tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"

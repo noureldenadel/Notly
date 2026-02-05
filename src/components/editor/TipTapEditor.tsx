@@ -8,6 +8,13 @@ import Highlight from '@tiptap/extension-highlight';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Underline from '@tiptap/extension-underline';
+import { Image } from '@tiptap/extension-image';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import SLASH_COMMANDS from './extensions/SlashCommands';
+const SlashCommands = SLASH_COMMANDS; // re-assign for clearer usage in array
 import { useCallback, useEffect } from 'react';
 import {
     Bold,
@@ -106,6 +113,17 @@ export function TipTapEditor({
             TextStyle,
             Color,
             Underline,
+            Image.configure({
+                inline: true,
+                allowBase64: true,
+            }),
+            Table.configure({
+                resizable: true,
+            }),
+            TableRow,
+            TableHeader,
+            TableCell,
+            SlashCommands,
         ],
         content,
         editable,

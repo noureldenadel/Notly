@@ -45,9 +45,9 @@ export const ModalManager = () => {
                 id: shapeId as TLShapeId,
                 type: 'card',
                 props: {
-                    title: card.title,
-                    content: card.content,
-                    color: card.color,
+                    title: card.title || '',
+                    content: card.content || '',
+                    color: card.color || 'highlight-blue',
                 },
             });
         }
