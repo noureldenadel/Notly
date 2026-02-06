@@ -157,18 +157,24 @@ export async function saveBytesToAssets(
     }
 
     try {
-        // Read file as ArrayBuffer
+        // Efficiently convert to base64 using FileReader
         const arrayBuffer = await file.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
+        const blob = new Blob([arrayBuffer]);
+        const base64Data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // reader.result is "data:application/octet-stream;base64,BASE64_STRING"
+                // We need to strip the prefix
+                const dataUrl = reader.result as string;
+                const base64 = dataUrl.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
 
-        // Convert to base64
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        const base64Data = btoa(binary);
-
-        log.debug('Saving bytes to assets:', file.name, 'size:', bytes.length);
+        // Log size for debugging
+        log.debug('Saving bytes to assets:', file.name, 'size:', arrayBuffer.byteLength);
 
         // Call Rust command to save the data
         const relativePath = await invoke<string>('save_bytes_to_assets', {

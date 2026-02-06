@@ -144,6 +144,44 @@ pub async fn get_asset_path(
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// Open the assets folder in the system file explorer
+#[command]
+pub async fn open_assets_folder(app: tauri::AppHandle) -> Result<(), String> {
+    use std::process::Command;
+    
+    let app_data_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    let assets_dir = app_data_dir.join("assets");
+    
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&assets_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&assets_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&assets_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    Ok(())
+}
+
 /// Save binary data (as base64) to the assets folder
 /// This is used for files from clipboard/paste that don't have a filesystem path
 #[command]

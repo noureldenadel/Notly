@@ -59,5 +59,16 @@ export function persistence(): PersistenceAPI {
  * Call this at app startup
  */
 export async function initPersistence(): Promise<void> {
+    // Ensure directory structure exists (Tauri only)
+    if (isTauri()) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('ensure_directory_structure');
+            log.info('Ensured directory structure');
+        } catch (e) {
+            log.error('Failed to ensure directory structure:', e);
+        }
+    }
+
     await getPersistence();
 }

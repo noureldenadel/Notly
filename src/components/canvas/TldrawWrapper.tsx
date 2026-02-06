@@ -7,7 +7,8 @@ import {
     useEditor,
     TLStoreSnapshot,
     TLRecord,
-    TLImageAsset
+    TLImageAsset,
+    createShapeId
 } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { useCanvasStore, useSyncStore, useSettingsStore } from '@/stores';
@@ -19,6 +20,7 @@ import { CardTool } from './tools/CardTool';
 import { MindMapTool } from './tools/MindMapTool';
 import { createLogger } from '@/lib/logger';
 import { SHAPE_DEFAULTS, COLORS } from '@/lib/constants';
+import { ZOOM_CONFIG } from '@/config/zoomConfig';
 import { tauriAssetStore } from '@/lib/tldrawAssetStore';
 import { useAdobeZoom } from '@/hooks/useAdobeZoom';
 import { patchAssetsInSnapshot } from './tldrawUtils';
@@ -68,11 +70,91 @@ export function TldrawWrapper({
                 log.debug('Handling external file asset:', file.name, file.type);
 
                 // Import asset manager dynamically
-                const { saveBytesToAssets, isTauri } = await import('@/lib/assetManager');
+                const { saveBytesToAssets, isTauri, importFile } = await import('@/lib/assetManager');
 
                 // Determine asset type
                 const isImage = file.type.startsWith('image/');
                 const isVideo = file.type.startsWith('video/');
+                const isPdf = file.type === 'application/pdf';
+
+                // Handle PDF separately - create custom PDFShape instead of standard asset
+                if (isPdf) {
+                    try {
+                        const { url, relativePath } = isTauri()
+                            ? await saveBytesToAssets(file, 'pdf')
+                            : await importFile(file, 'pdf');
+
+                        // Load PDF to get page count and generate thumbnail
+                        const { pdfjs } = await import('react-pdf');
+                        pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+                        const loadingTask = pdfjs.getDocument(url);
+                        const pdf = await loadingTask.promise;
+                        const totalPages = pdf.numPages;
+
+                        // Generate thumbnail
+                        let thumbnailPath = '';
+                        let viewport = null;
+                        try {
+                            const page = await pdf.getPage(1);
+                            viewport = page.getViewport({ scale: 0.5 });
+                            const canvas = document.createElement('canvas');
+                            canvas.width = viewport.width;
+                            canvas.height = viewport.height;
+                            const context = canvas.getContext('2d');
+                            if (context) {
+                                await page.render({
+                                    canvasContext: context,
+                                    viewport: viewport,
+                                    canvas: canvas,
+                                }).promise;
+                                thumbnailPath = canvas.toDataURL('image/png');
+                            }
+                        } catch (thumbError) {
+                            log.warn('Failed to generate PDF thumbnail:', thumbError);
+                        }
+
+                        // Calculate dimensions
+                        const pageAspectRatio = (viewport && viewport.width && viewport.height)
+                            ? viewport.width / viewport.height
+                            : 1 / 1.414;
+                        const width = SHAPE_DEFAULTS.PDF.WIDTH;
+                        const contentHeight = width / pageAspectRatio;
+                        const { PDF_FOOTER_HEIGHT } = await import('./shapes/PDFShape');
+                        const totalHeight = contentHeight + PDF_FOOTER_HEIGHT;
+
+                        // Get viewport center for placement
+                        const viewportCenter = editor.getViewportScreenCenter();
+                        const pagePoint = editor.screenToPage(viewportCenter);
+
+                        // Create PDF shape
+                        const shapeId = createShapeId();
+                        editor.createShape({
+                            id: shapeId,
+                            type: 'pdf',
+                            x: pagePoint.x - width / 2,
+                            y: pagePoint.y - totalHeight / 2,
+                            props: {
+                                w: width,
+                                h: totalHeight,
+                                fileId: relativePath,
+                                filename: file.name || 'Document.pdf',
+                                pageNumber: 1,
+                                totalPages,
+                                thumbnailPath,
+                            },
+                        });
+
+                        editor.select(shapeId);
+                        log.debug('PDF shape created from drop:', relativePath);
+
+                        // Return null - we created a shape, not a standard asset
+                        return null as any;
+                    } catch (pdfError) {
+                        log.error('Failed to handle dropped PDF:', pdfError);
+                        throw pdfError;
+                    }
+                }
 
                 if (!isImage && !isVideo) {
                     throw new Error(`Unsupported file type: ${file.type}`);
@@ -198,6 +280,39 @@ export function TldrawWrapper({
                                 saveTimeoutId = null;
                             }, SAVE_DEBOUNCE_MS);
                         }
+
+                        // Handle asset deletion - clean up files when assets are removed
+                        for (const [id, record] of Object.entries(info.changes.removed)) {
+                            // Check if it's an asset with a relativePath
+                            if (record && typeof record === 'object' && 'typeName' in record) {
+                                const rec = record as TLRecord;
+                                if (rec.typeName === 'asset') {
+                                    const asset = rec as TLImageAsset;
+                                    const relativePath = (asset.meta as { relativePath?: string })?.relativePath;
+                                    if (relativePath && typeof relativePath === 'string') {
+                                        // Delete the file asynchronously
+                                        import('@/lib/assetManager').then(({ deleteAssetFile }) => {
+                                            deleteAssetFile(relativePath).catch((err) => {
+                                                log.warn('Failed to delete asset file:', relativePath, err);
+                                            });
+                                        });
+                                    }
+                                }
+                                // Also handle PDF shapes which store src directly
+                                if (rec.typeName === 'shape' && 'type' in rec && rec.type === 'pdf') {
+                                    const pdfShape = rec as { props?: { src?: string } };
+                                    const src = pdfShape.props?.src;
+                                    // Check if it's a relative path (not a data URL or external URL)
+                                    if (src && !src.startsWith('data:') && !src.startsWith('http')) {
+                                        import('@/lib/assetManager').then(({ deleteAssetFile }) => {
+                                            deleteAssetFile(src).catch((err) => {
+                                                log.warn('Failed to delete PDF file:', src, err);
+                                            });
+                                        });
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 { scope: 'document' }
@@ -225,8 +340,62 @@ export function TldrawWrapper({
 
             log.debug('Editor mounted for board:', boardId);
 
+            // Handle touchpad pinch-zoom gestures
+            // On most systems, pinch-zoom is sent as wheel events with ctrlKey=true
+            // On some systems (including some Tauri/WebView2 configs), it may have different characteristics
+            const container = editor.getContainer();
+            const handleWheel = (e: WheelEvent) => {
+                // Detect pinch-zoom gestures with improved logic:
+                // 1. ctrlKey is true (standard browser behavior for pinch-zoom)
+                // 2. OR precise trackpad detection (pixel mode, small vertical delta, no horizontal delta)
+                const isPinchZoom =
+                    e.ctrlKey ||
+                    (e.deltaMode === 0 && Math.abs(e.deltaY) > 0 && Math.abs(e.deltaY) < 50 && e.deltaX === 0);
+
+                log.debug('Wheel event:', { ctrl: e.ctrlKey, deltaY: e.deltaY, mode: e.deltaMode, isPinch: isPinchZoom });
+
+                // Always prevent default to handle everything manually and bypass browser "rails" (axis locking)
+                e.preventDefault();
+
+                if (isPinchZoom) {
+                    // Calculate zoom factor based on scroll delta
+                    const zoomDelta = -e.deltaY * ZOOM_CONFIG.WHEEL_ZOOM_FACTOR;
+                    const currentZoom = editor.getCamera().z;
+                    const targetZoom = Math.max(ZOOM_CONFIG.MIN_ZOOM, Math.min(ZOOM_CONFIG.MAX_ZOOM, currentZoom * (1 + zoomDelta)));
+
+                    // Zoom toward pointer position
+                    // Zoom toward pointer position
+                    // ✅ FIXED: Use GLOBAL coordinates for screenToPage and Formula
+                    const clientPoint = { x: e.clientX, y: e.clientY };
+                    const pagePoint = editor.screenToPage(clientPoint);
+
+                    editor.run(() => {
+                        editor.setCamera({
+                            x: pagePoint.x - clientPoint.x / targetZoom, // Global here too
+                            y: pagePoint.y - clientPoint.y / targetZoom,
+                            z: targetZoom
+                        });
+                    }, { history: 'ignore' });
+                } else {
+                    // Manual Pan Handling (Two-finger scroll)
+                    const camera = editor.getCamera();
+                    const currentZoom = camera.z;
+
+                    editor.run(() => {
+                        editor.setCamera({
+                            x: camera.x + e.deltaX / currentZoom,
+                            y: camera.y + e.deltaY / currentZoom,
+                            z: currentZoom
+                        });
+                    }, { history: 'ignore' });
+                }
+            };
+            container.addEventListener('wheel', handleWheel, { passive: false });
+
             // Return cleanup function - crucial for saving before unmount
             return () => {
+                // Remove wheel listener
+                container.removeEventListener('wheel', handleWheel);
                 // Clear any pending debounced save
                 if (saveTimeoutId !== null) {
                     clearTimeout(saveTimeoutId);

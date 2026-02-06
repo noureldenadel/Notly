@@ -7,6 +7,8 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:default",
+    "core:window:allow-set-title",
     "fs:default",
     "fs:allow-read",
     "fs:allow-write",
@@ -15,6 +17,17 @@
     "fs:allow-remove",
     "fs:allow-copy-file",
     "fs:allow-rename",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$HOME/**"
+        }
+      ]
+    },
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",

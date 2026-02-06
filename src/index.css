@@ -105,9 +105,17 @@
     @apply border-border;
   }
 
+  html,
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    /* Strict layout locking */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    /* Prevents elastic scrolling on some OSs */
+
     /* Disable text selection for native app feel */
     user-select: none;
     -webkit-user-select: none;
@@ -117,6 +125,8 @@
     -webkit-user-drag: none;
     /* Prevent browser overscroll/bounce */
     overscroll-behavior: none;
+    touch-action: none;
+    /* Disable native interactions like zoom/pan at root */
   }
 
   /* Allow text selection in specific elements where it makes sense */
@@ -374,4 +384,8 @@ div[data-testid="watermark"] {
 /* Hide tldraw UI via CSS (instead of hideUi prop) to preserve keyboard shortcuts */
 .tldraw-hide-ui .tlui-layout {
   display: none !important;
+}
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
 }

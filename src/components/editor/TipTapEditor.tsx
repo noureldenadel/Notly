@@ -15,7 +15,7 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import SLASH_COMMANDS from './extensions/SlashCommands';
 const SlashCommands = SLASH_COMMANDS; // re-assign for clearer usage in array
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Bold,
     Italic,
@@ -65,10 +65,14 @@ const ToolbarButton = ({ icon, label, isActive, onClick, disabled }: ToolbarButt
                 variant="ghost"
                 size="icon"
                 onClick={onClick}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={disabled}
                 className={cn(
-                    'w-8 h-8',
-                    isActive && 'bg-accent text-accent-foreground'
+                    'w-8 h-8 transition-colors',
+                    // Hover styles (only when not active)
+                    !isActive && 'hover:bg-neutral-200 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-white',
+                    // Active styles (Yellow)
+                    isActive && 'bg-accent text-accent-foreground hover:bg-accent/90'
                 )}
             >
                 {icon}
@@ -87,6 +91,8 @@ export function TipTapEditor({
     showToolbar = true,
     className = '',
 }: TipTapEditorProps) {
+    const [tick, setTick] = useState(0);
+
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -129,6 +135,9 @@ export function TipTapEditor({
         editable,
         onUpdate: ({ editor }) => {
             onChange?.(editor.getHTML());
+        },
+        onTransaction: () => {
+            setTick(prev => prev + 1);
         },
         onBlur: () => {
             onBlur?.();

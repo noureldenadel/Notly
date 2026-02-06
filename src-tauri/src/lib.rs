@@ -15,6 +15,7 @@ pub fn run() {
             commands::database::delete_asset_file,
             commands::database::get_asset_path,
             commands::database::save_bytes_to_assets,
+            commands::database::open_assets_folder,
         ])
         .setup(|app| {
 

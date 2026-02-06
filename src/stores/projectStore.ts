@@ -56,7 +56,7 @@ interface ProjectState {
     isLoaded: boolean;
 
     // Load from persistence
-    loadProjects: () => Promise<void>;
+    loadProjects: (force?: boolean) => Promise<void>;
 
     // Project actions
     createProject: (title: string, description?: string, color?: string) => Promise<Project>;
@@ -90,8 +90,8 @@ export const useProjectStore = create<ProjectState>()(
             isLoaded: false,
 
             // Load from persistence
-            loadProjects: async () => {
-                if (get().isLoaded) return;
+            loadProjects: async (force?: boolean) => {
+                if (get().isLoaded && !force) return;
                 try {
                     const { getPersistence } = await import('@/lib/persistence');
                     const p = await getPersistence();

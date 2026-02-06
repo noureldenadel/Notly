@@ -163,7 +163,7 @@ export const TopBar = ({
     setIsEditingProject(false);
   };
 
-  const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, zoomLevel } = useEditor();
+  const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, setZoom, zoomLevel } = useEditor();
 
   // DND Sensors
   const sensors = useSensors(
@@ -388,13 +388,50 @@ export const TopBar = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="text-xs font-medium w-10 text-center hover:text-foreground"
-                onClick={resetZoom}
+                className="text-xs font-medium w-10 text-center hover:text-foreground cursor-ew-resize select-none"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  const target = e.currentTarget;
+                  target.setPointerCapture(e.pointerId);
+                  const startX = e.clientX;
+                  const startZoom = zoomLevel;
+                  let hasDragged = false;
+
+                  const handleMove = (moveEvent: PointerEvent) => {
+                    const deltaX = moveEvent.clientX - startX;
+
+                    // Only consider it a drag if moved more than 3 pixels
+                    if (Math.abs(deltaX) > 3) {
+                      hasDragged = true;
+
+                      let sensitivity = 0.5; // Default: 0.5% per pixel
+                      if (moveEvent.shiftKey) sensitivity = 1.0;  // Shift = 2x faster
+                      if (moveEvent.ctrlKey) sensitivity = 0.125; // Ctrl = 4x slower
+
+                      const newZoom = startZoom + deltaX * sensitivity;
+                      setZoom(Math.round(newZoom));
+                    }
+                  };
+
+                  const handleUp = () => {
+                    target.releasePointerCapture(e.pointerId);
+                    window.removeEventListener('pointermove', handleMove);
+                    window.removeEventListener('pointerup', handleUp);
+
+                    // Only reset zoom if it was a click (no drag)
+                    if (!hasDragged) {
+                      resetZoom();
+                    }
+                  };
+
+                  window.addEventListener('pointermove', handleMove);
+                  window.addEventListener('pointerup', handleUp);
+                }}
               >
                 {zoomLevel}%
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Reset Zoom (Click)</TooltipContent>
+            <TooltipContent side="bottom">Drag to zoom • Click to reset</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>

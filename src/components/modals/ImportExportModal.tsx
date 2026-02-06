@@ -93,7 +93,7 @@ export function ImportExportModal({ open, onOpenChange, initialTab = 'export' }:
             toast.success('Project imported successfully!');
 
             // Reload projects to show the new one
-            await loadProjects();
+            await loadProjects(true);
 
             // Close modal after short delay
             setTimeout(() => {

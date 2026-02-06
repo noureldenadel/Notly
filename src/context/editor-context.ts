@@ -19,6 +19,7 @@ export interface EditorContextType {
     zoomOut: () => void;
     zoomToFit: () => void;
     resetZoom: () => void;
+    setZoom: (level: number) => void;
     zoomLevel: number;
 
     // Asset actions

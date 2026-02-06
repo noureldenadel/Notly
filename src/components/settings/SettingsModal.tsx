@@ -29,6 +29,7 @@ import {
     RotateCcw,
     Download,
     RefreshCw,
+    FolderOpen,
 } from 'lucide-react';
 import {
     useSettingsStore,
@@ -88,6 +89,7 @@ const shortcutGroups = [
             { keys: 'Ctrl/⌘ + -', description: 'Zoom out' },
             { keys: 'Ctrl/⌘ + 0', description: 'Reset zoom' },
             { keys: 'Ctrl/⌘ + 1', description: 'Zoom to fit' },
+            { keys: 'Ctrl/⌘ + 2', description: 'Zoom to selection' },
             { keys: 'F11 / Ctrl/⌘ + Enter', description: 'Start presentation' },
         ],
     },
@@ -466,6 +468,66 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                                             </div>
                                         )}
                                     </ScrollArea>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Storage Location */}
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <Label>Assets Location</Label>
+                                    <p className="text-sm text-muted-foreground">Open the folder where images and PDFs are stored</p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={async () => {
+                                        try {
+                                            const { invoke } = await import('@tauri-apps/api/core');
+                                            await invoke('open_assets_folder');
+                                        } catch (e) {
+                                            console.error('Failed to open assets dir:', e);
+                                        }
+                                    }}
+                                >
+                                    <FolderOpen className="w-4 h-4 mr-2" />
+                                    Open Folder
+                                </Button>
+                            </div>
+
+                            <Separator />
+
+                            {/* Danger Zone */}
+                            <div className="space-y-4 pt-2">
+                                <h4 className="text-sm font-medium text-destructive flex items-center gap-2">
+                                    <Trash2 className="w-4 h-4" />
+                                    Danger Zone
+                                </h4>
+
+                                <div className="flex items-center justify-between p-3 border border-destructive/20 rounded-lg bg-destructive/5">
+                                    <div>
+                                        <Label className="text-destructive">Factory Reset</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Delete all data and reset app to fresh state.
+                                            <br />
+                                            <span className="font-semibold text-destructive">This cannot be undone.</span>
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (window.confirm('⚠️ FACTORY RESET WARNING ⚠️\n\nAre you sure you want to delete ALL projects, boards, and settings?\n\nThis action is permanent and cannot be undone.')) {
+                                                // Clear all localStorage
+                                                localStorage.clear();
+                                                // Reload app to fresh state
+                                                window.location.reload();
+                                            }
+                                        }}
+                                    >
+                                        Reset App
+                                    </Button>
                                 </div>
                             </div>
                         </ScrollArea>
