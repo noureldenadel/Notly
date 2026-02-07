@@ -10,7 +10,6 @@ import { createLogger } from '@/lib/logger';
 
 import { SHAPE_DEFAULTS, COLORS, TOOL_MAP, ACTION_TOOLS } from '@/lib/constants';
 import { getViewportCenter } from '@/lib/canvasUtils';
-import { ZOOM_CONFIG } from '@/config/zoomConfig';
 
 const log = createLogger('EditorContext');
 
@@ -143,7 +142,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     }, [editor, getUiToolId]);
 
     // Insert image via file dialog
-    const insertImage = useCallback(async () => {
+    const insertImage = useCallback(() => {
         log.debug('insertImage called, editor:', !!editor);
         if (editor) editor.setCurrentTool('select'); // Force select tool
 
@@ -231,7 +230,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     }, [editor]);
 
     // Insert PDF via file dialog
-    const insertPDF = useCallback(async () => {
+    const insertPDF = useCallback(() => {
         log.debug('insertPDF called, editor:', !!editor);
         if (editor) editor.setCurrentTool('select'); // Force select tool
 
@@ -358,105 +357,23 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
     const zoomIn = useCallback(() => {
         if (!editor) return;
-
-        // Use native zoomIn which handles animation queuing correctly
-        editor.zoomIn(editor.getViewportScreenCenter(), {
-            animation: { duration: ZOOM_CONFIG.UI_ZOOM_DURATION }
-        });
+        editor.zoomIn();
     }, [editor]);
 
     const zoomOut = useCallback(() => {
         if (!editor) return;
-
-        editor.zoomOut(editor.getViewportScreenCenter(), {
-            animation: { duration: ZOOM_CONFIG.UI_ZOOM_DURATION }
-        });
+        editor.zoomOut();
     }, [editor]);
 
     const zoomToFit = useCallback(() => {
         if (!editor) return;
-        editor.zoomToFit({ animation: { duration: 300 } });
+        editor.zoomToFit();
     }, [editor]);
 
     const resetZoom = useCallback(() => {
         if (!editor) return;
-        editor.resetZoom(editor.getViewportScreenCenter(), { animation: { duration: 300 } });
+        editor.resetZoom();
     }, [editor]);
-
-    const zoomToSelection = useCallback(() => {
-        if (!editor) return;
-        const selectedShapes = editor.getSelectedShapes();
-        if (selectedShapes.length > 0) {
-            editor.zoomToSelection({ animation: { duration: 300 } });
-        }
-    }, [editor]);
-
-    const setZoom = useCallback((level: number) => {
-        if (!editor) return;
-
-        // Clamp zoom level
-        const clampedLevel = Math.max(
-            ZOOM_CONFIG.MIN_ZOOM * 100,
-            Math.min(ZOOM_CONFIG.MAX_ZOOM * 100, level)
-        );
-        const newZ = clampedLevel / 100;
-
-        // Get container dimensions
-        const container = editor.getContainer();
-
-        // ✅ CRITICAL: Use viewport-relative coordinates (same as TldrawWrapper)
-        const screenPoint = {
-            x: container.clientWidth / 2,   // Center X in viewport coords
-            y: container.clientHeight / 2   // Center Y in viewport coords
-        };
-
-        // Convert to page coordinates
-        const pagePoint = editor.screenToPage(screenPoint);
-
-        // ✅ Use EXACT SAME formula as TldrawWrapper and Adobe zoom
-        editor.setCamera({
-            x: pagePoint.x - screenPoint.x / newZ,
-            y: pagePoint.y - screenPoint.y / newZ,
-            z: newZ
-        }, { animation: { duration: ZOOM_CONFIG.UI_ZOOM_DURATION } });
-    }, [editor]);
-
-    // Register Keyboard Shortcuts
-    useEffect(() => {
-        if (!editor) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.ctrlKey || e.metaKey) {
-                switch (e.key) {
-                    case '0':
-                        e.preventDefault();
-                        resetZoom();
-                        break;
-                    case '1':
-                        e.preventDefault();
-                        zoomToFit();
-                        break;
-                    case '2':
-                        e.preventDefault();
-                        zoomToSelection();
-                        break;
-                    case '=':
-                    case '+':
-                        e.preventDefault();
-                        zoomIn();
-                        break;
-                    case '-':
-                    case '_':
-                        e.preventDefault();
-                        zoomOut();
-                        break;
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [editor, resetZoom, zoomToFit, zoomToSelection, zoomIn, zoomOut]);
 
     return (
         <EditorContext.Provider
@@ -472,7 +389,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 zoomOut,
                 zoomToFit,
                 resetZoom,
-                setZoom,
                 zoomLevel,
                 insertImage,
                 insertPDF,
