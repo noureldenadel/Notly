@@ -18,14 +18,14 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('localStorage');
 
 const STORAGE_KEYS = {
-    projects: 'fikri_projects',
-    boards: 'fikri_boards',
-    cards: 'fikri_cards',
-    files: 'fikri_files',
-    tags: 'fikri_tags',
-    highlights: 'fikri_highlights',
-    favorites: 'fikri_favorites',
-    canvasSnapshots: 'fikri_canvas_snapshots',
+    projects: 'notly_projects',
+    boards: 'notly_boards',
+    cards: 'notly_cards',
+    files: 'notly_files',
+    tags: 'notly_tags',
+    highlights: 'notly_highlights',
+    favorites: 'notly_favorites',
+    canvasSnapshots: 'notly_canvas_snapshots',
 } as const;
 
 // Generic localStorage helpers

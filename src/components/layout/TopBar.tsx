@@ -163,7 +163,7 @@ export const TopBar = ({
     setIsEditingProject(false);
   };
 
-  const { undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, setZoom, zoomLevel } = useEditor();
+  const { editor, undo, redo, canUndo, canRedo, zoomIn, zoomOut, zoomToFit, resetZoom, setZoom, zoomLevel } = useEditor();
 
   // DND Sensors
   const sensors = useSensors(
@@ -397,6 +397,38 @@ export const TopBar = ({
                   const startZoom = zoomLevel;
                   let hasDragged = false;
 
+                  // ✅ Capture BOTH anchor points at start
+                  if (!editor) return;
+
+                  // ✅ Use VIEWPORT-RELATIVE center like zoom buttons do
+                  const container = editor.getContainer();
+                  const viewportCenter = {
+                    x: container.clientWidth / 2,
+                    y: container.clientHeight / 2
+                  };
+
+                  // For screenToPage, we need global coordinates
+                  const rect = container.getBoundingClientRect();
+                  const globalCenter = {
+                    x: rect.left + viewportCenter.x,
+                    y: rect.top + viewportCenter.y
+                  };
+
+                  const anchor = {
+                    screenPoint: viewportCenter,  // Viewport-relative for formula
+                    pagePoint: editor.screenToPage(globalCenter)  // Global for screenToPage
+                  };
+
+                  console.log('');
+                  console.log('═══════════════════════════════════════════');
+                  console.log('🎯 ZOOM SLIDER DRAG START');
+                  console.log('═══════════════════════════════════════════');
+                  console.log('Viewport center (from getViewportScreenCenter):', viewportCenter);
+                  console.log('Page point:', anchor.pagePoint);
+                  console.log('Starting zoom:', startZoom);
+                  console.log('═══════════════════════════════════════════');
+                  console.log('');
+
                   const handleMove = (moveEvent: PointerEvent) => {
                     const deltaX = moveEvent.clientX - startX;
 
@@ -409,6 +441,16 @@ export const TopBar = ({
                       if (moveEvent.ctrlKey) sensitivity = 0.125; // Ctrl = 4x slower
 
                       const newZoom = startZoom + deltaX * sensitivity;
+
+                      console.log('🔄 ZOOM SLIDER MOVE:', {
+                        deltaX,
+                        sensitivity,
+                        newZoom: Math.round(newZoom),
+                        anchor,
+                        currentCamera: editor.getCamera()
+                      });
+
+                      // ✅ Don't pass anchor - use same code path as buttons
                       setZoom(Math.round(newZoom));
                     }
                   };

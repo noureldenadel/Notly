@@ -521,8 +521,23 @@ export function SettingsModal({ open, onOpenChange, initialTab = 'appearance' }:
                                             if (window.confirm('⚠️ FACTORY RESET WARNING ⚠️\n\nAre you sure you want to delete ALL projects, boards, and settings?\n\nThis action is permanent and cannot be undone.')) {
                                                 // Clear all localStorage
                                                 localStorage.clear();
-                                                // Reload app to fresh state
-                                                window.location.reload();
+
+                                                // Clear IndexedDB (the actual data storage)
+                                                const deleteRequest = indexedDB.deleteDatabase('notly_db');
+                                                deleteRequest.onsuccess = () => {
+                                                    console.log('IndexedDB cleared successfully');
+                                                    // Reload app to fresh state
+                                                    window.location.reload();
+                                                };
+                                                deleteRequest.onerror = () => {
+                                                    console.error('Failed to clear IndexedDB');
+                                                    // Reload anyway
+                                                    window.location.reload();
+                                                };
+                                                deleteRequest.onblocked = () => {
+                                                    console.warn('IndexedDB deletion blocked, reloading anyway');
+                                                    window.location.reload();
+                                                };
                                             }
                                         }}
                                     >

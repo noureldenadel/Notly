@@ -89,7 +89,7 @@ export async function getAssetPath(relativePath: string): Promise<string> {
 
 /**
  * Get a URL that can be used to load an asset in the browser/webview
- * In Tauri, this converts the file path to a tauri:// protocol URL
+ * In Tauri, this converts the file to a data URL (base64)
  * @param relativePath - Relative path within assets folder (e.g., "pdfs/123_doc.pdf")
  */
 export async function getAssetUrl(relativePath: string): Promise<string> {
@@ -99,9 +99,40 @@ export async function getAssetUrl(relativePath: string): Promise<string> {
     }
 
     try {
+        // In Tauri, we need to read the file and create a data URL
+        // TLDraw doesn't accept blob: URLs, so we use data URLs instead
         const fullPath = await getAssetPath(relativePath);
-        // Convert to tauri asset protocol URL
-        return convertFileSrc(fullPath);
+        log.debug('Getting asset URL for:', fullPath);
+
+        // Read file
+        const { readFile } = await import('@tauri-apps/plugin-fs');
+        const fileBytes = await readFile(fullPath);
+
+        // Detect MIME type from extension
+        const ext = relativePath.split('.').pop()?.toLowerCase();
+        const mimeTypes: Record<string, string> = {
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            'bmp': 'image/bmp',
+            'pdf': 'application/pdf'
+        };
+        const mimeType = mimeTypes[ext || ''] || 'application/octet-stream';
+
+        // Convert to base64 data URL
+        const blob = new Blob([fileBytes], { type: mimeType });
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        log.debug('Created data URL for', relativePath);
+        return dataUrl;
     } catch (error) {
         log.error('Failed to get asset URL:', error);
         throw error;

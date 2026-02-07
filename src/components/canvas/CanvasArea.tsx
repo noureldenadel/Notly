@@ -4,6 +4,7 @@ import { TldrawWrapper } from './TldrawWrapper';
 import { patchAssetsInSnapshot } from './tldrawUtils';
 import { useProjectStore } from '@/stores';
 import { useEditor } from '@/hooks/useEditor';
+import { useSnapshotCache } from '@/hooks/useSnapshotCache';
 import { createLogger } from '@/lib/logger';
 import { THUMBNAIL } from '@/lib/constants';
 
@@ -41,25 +42,42 @@ const sanitizeSnapshot = (snapshotObj: TLStoreSnapshot) => {
   return { ...snapshotObj, store: cleanStore };
 };
 
-// Save board snapshot to Persistence (SQLite)
-const saveBoardSnapshot = async (boardId: string, snapshot: string) => {
+// Save board snapshot to Persistence (IndexedDB) AND cache
+const saveBoardSnapshot = async (boardId: string, snapshot: string, updateCache?: (id: string, snap: string) => void) => {
   try {
-    const { getPersistence } = await import('@/lib/persistence');
-    const p = await getPersistence();
-
-    // Parse, sanitize, stringify
+    // Parse, sanitize, stringify FIRST (synchronous)
     const snapshotObj = JSON.parse(snapshot);
     const cleanSnapshot = sanitizeSnapshot(snapshotObj);
+    const cleanSnapshotStr = JSON.stringify(cleanSnapshot);
 
-    await p.saveCanvasSnapshot(boardId, JSON.stringify(cleanSnapshot));
+    // Update cache IMMEDIATELY (synchronous) - this ensures the snapshot is available
+    // for fast loading when switching boards, before the async IndexedDB save completes
+    if (updateCache) {
+      updateCache(boardId, cleanSnapshotStr);
+    }
+
+    // Then save to IndexedDB (async) for persistence
+    const { getPersistence } = await import('@/lib/persistence');
+    const p = await getPersistence();
+    await p.saveCanvasSnapshot(boardId, cleanSnapshotStr);
   } catch (e) {
     log.error('Failed to save board snapshot:', e);
   }
 };
 
-// Load board snapshot from Persistence (SQLite)
-const loadBoardSnapshot = async (boardId: string): Promise<string | null> => {
+// Load board snapshot from cache first, then IndexedDB
+const loadBoardSnapshot = async (boardId: string, getCached?: (id: string) => string | null): Promise<string | null> => {
   try {
+    // Try cache first (instant)
+    if (getCached) {
+      const cached = getCached(boardId);
+      if (cached) {
+        log.debug('Loaded snapshot from cache:', boardId);
+        return cached;
+      }
+    }
+
+    // Fall back to IndexedDB
     const { getPersistence } = await import('@/lib/persistence');
     const p = await getPersistence();
     return await p.loadCanvasSnapshot(boardId);
@@ -173,10 +191,12 @@ const captureCanvasThumbnail = async (editor: Editor): Promise<string | null> =>
 export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
   const { activeBoardId, activeProjectId, updateProject } = useProjectStore();
   const { setEditor } = useEditor();
+  const { getCached, setCache, removeFromCache } = useSnapshotCache();
   const currentBoardId = boardId || activeBoardId || 'default';
   const previousBoardRef = useRef<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const thumbnailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMountRef = useRef(true); // Track if this is the first mount
 
   // Save current board and capture thumbnail when switching away
   useEffect(() => {
@@ -190,7 +210,7 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
       if (editorRef.current && previousBoardRef.current) {
         const editor = editorRef.current;
         const snapshot = getSnapshot(editor.store);
-        saveBoardSnapshot(previousBoardRef.current, JSON.stringify(snapshot));
+        saveBoardSnapshot(previousBoardRef.current, JSON.stringify(snapshot), setCache);
         log.debug('Saved snapshot for board:', previousBoardRef.current);
 
         // Capture and save thumbnail for the project
@@ -204,12 +224,10 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         }
       }
     };
-  }, [currentBoardId, activeProjectId, updateProject]);
+  }, [currentBoardId, activeProjectId, updateProject, setCache]);
 
-  // Track current board
-  useEffect(() => {
-    previousBoardRef.current = currentBoardId;
-  }, [currentBoardId]);
+  // previousBoardRef is updated INSIDE switchBoard effect after the switch completes
+  // This prevents the race condition where it was updated before switchBoard could save
 
   // Save snapshot and thumbnail before page unload (refresh/close)
   useEffect(() => {
@@ -221,22 +239,22 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         const snapshot = getSnapshot(editor.store);
         // Note: Async calls in beforeunload are effectively cancelled, but we try anyway
         // For robustness, we rely mostly on the auto-save interval
-        saveBoardSnapshot(currentBoardId, JSON.stringify(snapshot));
+        saveBoardSnapshot(currentBoardId, JSON.stringify(snapshot), setCache);
         log.debug('Saved snapshot on beforeunload');
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [currentBoardId]);
+  }, [currentBoardId, setCache]);
 
   // Handle editor ready
   const handleEditorReady = useCallback(async (ed: Editor) => {
     editorRef.current = ed;
     setEditor(ed);
 
-    // Load saved snapshot for this board from SQLite
-    const savedSnapshot = await loadBoardSnapshot(currentBoardId);
+    // Load saved snapshot for this board - cache first, then IndexedDB
+    const savedSnapshot = await loadBoardSnapshot(currentBoardId, getCached);
     if (savedSnapshot) {
       try {
         const parsed = JSON.parse(savedSnapshot);
@@ -245,7 +263,10 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
         await patchAssetsInSnapshot(parsed);
 
         loadSnapshot(ed.store, parsed);
-        log.debug('Loaded snapshot for board from DB:', currentBoardId);
+        log.debug('Loaded snapshot for board:', currentBoardId);
+
+        // Update cache if loaded from IndexedDB
+        setCache(currentBoardId, savedSnapshot);
       } catch (e) {
         log.warn('Failed to parse saved snapshot:', e);
       }
@@ -254,14 +275,70 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
     }
 
     log.debug('Editor ready for board:', currentBoardId);
-  }, [setEditor, currentBoardId]);
+
+    // Set previousBoardRef on initial mount
+    previousBoardRef.current = currentBoardId;
+  }, [setEditor, currentBoardId, getCached, setCache]);
+
+  // Handle board switching without remounting the component
+  useEffect(() => {
+    // Skip on initial mount - handleEditorReady handles the first load
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const switchBoard = async () => {
+      if (!editorRef.current) return;
+
+      const editor = editorRef.current;
+
+      // Save current board before switching
+      if (previousBoardRef.current && previousBoardRef.current !== currentBoardId) {
+        const snapshot = getSnapshot(editor.store);
+        saveBoardSnapshot(previousBoardRef.current, JSON.stringify(snapshot), setCache);
+        log.debug('Saved snapshot before switch:', previousBoardRef.current);
+      }
+
+      // Load new board snapshot
+      const savedSnapshot = await loadBoardSnapshot(currentBoardId, getCached);
+      if (savedSnapshot) {
+        try {
+          const parsed = JSON.parse(savedSnapshot);
+          await patchAssetsInSnapshot(parsed);
+          loadSnapshot(editor.store, parsed);
+          log.debug('Switched to board:', currentBoardId);
+
+          // Update cache if loaded from IndexedDB
+          setCache(currentBoardId, savedSnapshot);
+        } catch (e) {
+          log.warn('Failed to load snapshot during switch:', e);
+          // On error, delete all shapes to show blank canvas
+          const allShapes = editor.getCurrentPageShapes();
+          editor.deleteShapes(allShapes.map(s => s.id));
+        }
+      } else {
+        // New board - delete all shapes to show blank canvas
+        const allShapes = editor.getCurrentPageShapes();
+        if (allShapes.length > 0) {
+          editor.deleteShapes(allShapes.map(s => s.id));
+        }
+        log.debug('Loaded empty canvas for new board:', currentBoardId);
+      }
+
+      // Update previousBoardRef AFTER the switch completes
+      previousBoardRef.current = currentBoardId;
+    };
+
+    switchBoard();
+  }, [currentBoardId, getCached, setCache]);
 
 
 
   // Handle snapshot changes (for auto-save)
   const handleSnapshotChange = useCallback((snapshot: string) => {
-    // Auto-save snapshot to SQLite
-    saveBoardSnapshot(currentBoardId, snapshot);
+    // Auto-save snapshot to IndexedDB
+    saveBoardSnapshot(currentBoardId, snapshot, setCache);
 
     // Debounced Thumbnail Capture (3 seconds)
     if (thumbnailTimeoutRef.current) {
@@ -283,9 +360,8 @@ export const CanvasArea = ({ boardId }: CanvasAreaProps) => {
 
   return (
     <div className="flex-1 relative overflow-hidden">
-      {/* tldraw Canvas - key forces remount when board changes */}
+      {/* tldraw Canvas - no key, board switching handled by useEffect */}
       <TldrawWrapper
-        key={currentBoardId}
         boardId={currentBoardId}
         onEditorReady={handleEditorReady}
         onSnapshotChange={handleSnapshotChange}

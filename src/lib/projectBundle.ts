@@ -239,8 +239,42 @@ async function extractAssetsFromSnapshot(
                     if (asset.props?.src) {
                         const src = asset.props.src;
 
+                        // Handle data URLs (base64 encoded assets)
+                        if (src.startsWith('data:')) {
+                            try {
+                                // Extract base64 data from data URL
+                                const base64Match = src.match(/^data:([^;]+);base64,(.+)$/);
+                                if (base64Match) {
+                                    const mimeType = base64Match[1];
+                                    const base64Data = base64Match[2];
+
+                                    // Convert base64 to binary
+                                    const binaryString = atob(base64Data);
+                                    const bytes = new Uint8Array(binaryString.length);
+                                    for (let i = 0; i < binaryString.length; i++) {
+                                        bytes[i] = binaryString.charCodeAt(i);
+                                    }
+
+                                    // Determine file extension from MIME type
+                                    const ext = mimeType.split('/')[1] || 'bin';
+                                    const filename = `asset-${nanoid(10)}.${ext}`;
+                                    const zipPath = `assets/${filename}`;
+
+                                    zip.file(zipPath, bytes);
+
+                                    // Update the snapshot to use bundle reference
+                                    asset.props.src = `bundle://${zipPath}`;
+                                    assetRefs.push({
+                                        relativePath: zipPath,
+                                        originalPath: src.substring(0, 50) + '...', // Truncate for logging
+                                    });
+                                }
+                            } catch (e) {
+                                log.warn('Failed to extract data URL asset:', e);
+                            }
+                        }
                         // Handle local asset paths (tauri:// or https://asset.localhost)
-                        if (src.includes('asset.localhost') || src.startsWith('tauri://')) {
+                        else if (src.includes('asset.localhost') || src.startsWith('tauri://')) {
                             const fileData = await readAssetByUrl(src);
                             if (fileData) {
                                 const filename = extractFilenameFromUrl(src) || `asset-${nanoid(6)}`;

@@ -12,8 +12,8 @@ import {
   StickyNote,
   FileText,
   Image,
-  FileType,
-  Sparkles
+  Album,
+  Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -137,8 +137,8 @@ export const BottomToolbar = ({
   const customTools = [
     { id: "card", icon: <FileText className="w-4 h-4" />, label: "Card", shortcut: "C" },
     { id: "image", icon: <Image className="w-4 h-4" />, label: "Insert Image", shortcut: "I" },
-    { id: "pdf", icon: <FileType className="w-4 h-4" />, label: "PDF", shortcut: "P" },
-    { id: "mindmap", icon: <Sparkles className="w-4 h-4" />, label: "Mind Map", shortcut: "M" },
+    { id: "pdf", icon: <Album className="w-4 h-4" />, label: "PDF", shortcut: "P" },
+    { id: "mindmap", icon: <Brain className="w-4 h-4" />, label: "Mind Map", shortcut: "M" },
   ];
 
   return (

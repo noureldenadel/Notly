@@ -32,10 +32,10 @@ export async function getPersistence(): Promise<PersistenceAPI> {
         return persistenceInstance;
     }
 
-    // Force usage of localStorageAdapter for both Web and Tauri
-    // This avoids the complex async SQLite race conditions
-    persistenceInstance = localStorageAdapter;
-    log.debug('Using localStorage adapter (forced)');
+    // Use IndexedDB for better storage capacity (50MB-1GB vs localStorage's 5-10MB)
+    // This prevents quota errors with large base64 images in snapshots
+    persistenceInstance = indexeddbAdapter;
+    log.debug('Using IndexedDB adapter (larger capacity)');
 
     await persistenceInstance.init();
     return persistenceInstance;

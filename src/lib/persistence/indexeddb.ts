@@ -17,7 +17,7 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('IndexedDB');
 
-const DB_NAME = 'fikri_db';
+const DB_NAME = 'notly_db';
 const DB_VERSION = 1;
 
 const STORES = {

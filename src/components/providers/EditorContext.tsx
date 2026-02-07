@@ -375,6 +375,48 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         editor.resetZoom();
     }, [editor]);
 
+    // Set zoom to a specific level, zooming toward viewport center
+    const setZoom = useCallback((level: number, anchor?: { screenPoint: { x: number; y: number }, pagePoint: { x: number; y: number } }) => {
+        if (!editor) return;
+
+        // Clamp zoom level (10% to 400%)
+        const clampedLevel = Math.max(10, Math.min(400, level));
+        const newZ = clampedLevel / 100;
+
+        // Get viewport center for zoom anchor
+        const container = editor.getContainer();
+        const rect = container.getBoundingClientRect();
+
+        const viewportPoint = {
+            x: container.clientWidth / 2,
+            y: container.clientHeight / 2
+        };
+
+        const globalPoint = {
+            x: rect.left + viewportPoint.x,
+            y: rect.top + viewportPoint.y
+        };
+
+        // ✅ Use SAME point (globalPoint) for both screenToPage AND camera formula
+        // This matches the working wheel zoom pattern in TldrawWrapper.tsx
+        const pagePoint = editor.screenToPage(globalPoint);
+
+        // Calculate new camera position - must use SAME coordinates as screenToPage
+        const newCamera = {
+            x: pagePoint.x - globalPoint.x / newZ,  // ✅ Use globalPoint not viewportPoint!
+            y: pagePoint.y - globalPoint.y / newZ,
+            z: newZ
+        };
+
+        // Use instant zoom for slider drag, animated for buttons
+        if (anchor) {
+            editor.stopCameraAnimation();
+            editor.setCamera(newCamera, { animation: { duration: 0 } });
+        } else {
+            editor.setCamera(newCamera, { animation: { duration: 200 } });
+        }
+    }, [editor]);
+
     return (
         <EditorContext.Provider
             value={{
@@ -389,6 +431,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
                 zoomOut,
                 zoomToFit,
                 resetZoom,
+                setZoom,
                 zoomLevel,
                 insertImage,
                 insertPDF,

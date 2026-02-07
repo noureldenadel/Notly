@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import {
     Tldraw,
     Editor,
@@ -48,6 +48,17 @@ export function TldrawWrapper({
     const { setEditorRef, setViewport } = useCanvasStore();
     const { incrementPendingChanges, recordAutoSave } = useSyncStore();
     const { appearance } = useSettingsStore();
+
+    // Use ref for callbacks to avoid stale closures in the store listener
+    // When board changes, CanvasArea creates a new onSnapshotChange callback with the new boardId
+    // But the store listener is set up at mount time and would use the OLD callback
+    // By using a ref, the listener always calls the LATEST callback
+    const onSnapshotChangeRef = useRef(onSnapshotChange);
+
+    // Keep the ref updated with the latest callback
+    useEffect(() => {
+        onSnapshotChangeRef.current = onSnapshotChange;
+    }, [onSnapshotChange]);
 
     // Handle editor mount
     const handleMount = useCallback(
@@ -275,7 +286,10 @@ export function TldrawWrapper({
                             // Schedule new save after debounce period
                             saveTimeoutId = setTimeout(() => {
                                 const snapshot = getSnapshot(editor.store);
-                                onSnapshotChange(JSON.stringify(snapshot));
+                                // Use ref to always call the LATEST callback (with correct boardId)
+                                if (onSnapshotChangeRef.current) {
+                                    onSnapshotChangeRef.current(JSON.stringify(snapshot));
+                                }
                                 recordAutoSave();
                                 saveTimeoutId = null;
                             }, SAVE_DEBOUNCE_MS);

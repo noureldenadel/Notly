@@ -19,7 +19,7 @@ export interface EditorContextType {
     zoomOut: () => void;
     zoomToFit: () => void;
     resetZoom: () => void;
-    setZoom: (level: number) => void;
+    setZoom: (level: number, anchor?: { screenPoint: { x: number; y: number }, pagePoint: { x: number; y: number } }) => void;
     zoomLevel: number;
 
     // Asset actions
